@@ -30,7 +30,7 @@ type DelaySummary struct {
 
 	// Counters are counters for each bucket
 	// e.g., for bucketSize == 1ms, BucketNum == 5, counters are for 0-1, 1-2, 2-3, 3-4, 4-5, >5
-	Counters []int64 
+	Counters []int64
 }
 
 // Init initializes DelaySummary
@@ -140,4 +140,24 @@ func (dc *DelaySummary) KVString(buf *bytes.Buffer, prefix string) {
 		str = fmt.Sprintf("%s_Counters_%d:%d\n", prefix, i, dc.Counters[i])
 		buf.WriteString(str)
 	}
+}
+
+func (dc *DelaySummary) PrometheusString(buf *bytes.Buffer, prefix string) {
+	str := fmt.Sprintf("# TYPE %s histogram\n", prefix)
+	buf.WriteString(str)
+
+	var lesum int64
+	for i := 0; i < dc.BucketNum; i++ {
+		str = fmt.Sprintf("%s_bucket{le=\"%d\"} %d\n", prefix, (i+1)*1000, lesum+dc.Counters[i])
+		buf.WriteString(str)
+		lesum = lesum + dc.Counters[i]
+	}
+	str = fmt.Sprintf("%s_bucket{le=\"+Inf\"} %d\n", prefix, dc.Count)
+	buf.WriteString(str)
+
+	str = fmt.Sprintf("%s_sum %d\n", prefix, dc.Sum)
+	buf.WriteString(str)
+
+	str = fmt.Sprintf("%s_count %d\n", prefix, dc.Count)
+	buf.WriteString(str)
 }

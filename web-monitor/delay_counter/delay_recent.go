@@ -39,15 +39,15 @@ type DelayRecent struct {
 	past     DelaySummary // data for last minute
 
 	// for key-value output
-	KeyPrefix string     // prefix for key
-	ProgramName   string // program name
+	KeyPrefix   string // prefix for key
+	ProgramName string // program name
 }
 
 // DelayOutput is designed for json output
 type DelayOutput struct {
-	Interval      int
-	KeyPrefix string
-	ProgramName   string
+	Interval    int
+	KeyPrefix   string
+	ProgramName string
 
 	CurrTime string
 	Current  DelaySummary
@@ -57,12 +57,12 @@ type DelayOutput struct {
 }
 
 // Init initializes delay table
-// 
+//
 // Params:
 //      - interval: interval for move current to past
 //      - bucketSize: size of each delay bucket, e.g., 1(ms) or 2(ms)
 //      - number of bucket
-// 
+//
 func (t *DelayRecent) Init(interval int, bucketSize int, bucketNum int) {
 	t.currTime = time.Now()
 	// adjust time
@@ -182,6 +182,12 @@ func (t *DelayRecent) GetKVWithProgramName() []byte {
 	return d.GetKVWithProgramName()
 }
 
+// get data in the table, return with prometheus format
+func (t *DelayRecent) GetPrometheusFormat() []byte {
+	d := t.Get()
+	return d.GetPrometheusFormat()
+}
+
 // FormatOutput formats output according to format value in params
 func (t *DelayRecent) FormatOutput(params map[string][]string) ([]byte, error) {
 	format, err := web_params.ParamsValueGet(params, "format")
@@ -196,6 +202,8 @@ func (t *DelayRecent) FormatOutput(params map[string][]string) ([]byte, error) {
 		return t.GetKV(), nil
 	case "kv_with_program_name":
 		return t.GetKVWithProgramName(), nil
+	case "prometheus":
+		return t.GetPrometheusFormat(), nil
 	default:
 		return nil, fmt.Errorf("format not support: %s", format)
 	}
@@ -256,5 +264,12 @@ func (d *DelayOutput) getKV(withProgramName bool) []byte {
 	str = d.keyPrefixGen("Past", withProgramName)
 	d.Past.KVString(&buf, str)
 
+	return buf.Bytes()
+}
+
+func (d *DelayOutput) GetPrometheusFormat() []byte {
+	var buf bytes.Buffer
+	str := d.keyPrefixGen("Past", true)
+	d.Past.PrometheusString(&buf, str)
 	return buf.Bytes()
 }
