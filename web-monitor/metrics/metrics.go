@@ -18,9 +18,9 @@ Usage:
 
 	// define counter struct type
 	type ServerState {
-		ReqServed *Counter // field type must be *Counter
+		ReqServed *Counter // field type must be *Counter or *Gauge
 		ConServed *Counter
-		ConActive *Counter
+		ConActive *Gauge
 	}
 
 	// create metrics
@@ -29,12 +29,14 @@ Usage:
     m.Init(&s, "PROXY", 20)
 
 	// counter operations
+	s.ConActive.Inc(2)
     s.ConServed.Inc(1)
     s.ReqServed.Inc(1)
-    s.ConActive.Inc(-1)
+    s.ConActive.Dec(1)
 
-	// get absoulute and diff data for all counters
+	// get absoulute data for all metrics
     stateData := m.GetAll()
+	// get diff data for all counters(gauge don't have diff data)
     stateDiff := m.GetDiff()
 */
 package metrics
@@ -45,6 +47,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 	"unicode"
@@ -63,17 +66,31 @@ const (
 	KindDelta = "delta"
 )
 
-var (
-	ErrStructPtrType   = errors.New("counters should be struct pointor")
-	ErrStructFieldType = errors.New("struct field shoule be *Counter")
+const (
+	TypeGauge   = "Gauge"
+	TypeCounter = "Counter"
 )
+
+var (
+	errStructPtrType   = errors.New("metrics should be struct pointor")
+	errStructFieldType = errors.New("struct field shoule be *Counter or *Gauge")
+)
+
+var (
+	supportTypes = map[string]bool{TypeGauge: true, TypeCounter: true}
+)
+
+type Metric interface {
+	Get() int64
+	Type() string
+}
 
 type Metrics struct {
 	// constant after initial
-	countersStruct interface{}         // underlying counters struct (pointor)
-	countersPrefix string              // name prefix for all conters
-	interval       int                 // diff interval
-	countersMap    map[string]*Counter // all counters
+	metricStruct interface{}       // underlying struct (pointor)
+	metricPrefix string            // name prefix for all metrics
+	interval     int               // diff interval
+	metricsMap   map[string]Metric // all metrics
 
 	// protect following fields
 	lock        sync.RWMutex
@@ -87,18 +104,18 @@ type Metrics struct {
 //     - counters: a pointer to a sturct var; struct field type must be *Counter
 //     - prefix  : prefix for counters
 //     - interval: diff interval (second), if <=0, use default value 20
-func (m *Metrics) Init(counters interface{}, prefix string, interval int) error {
-	if err := validateCounters(counters); err != nil {
+func (m *Metrics) Init(metrics interface{}, prefix string, interval int) error {
+	if err := validateMetrics(metrics); err != nil {
 		return err
 	}
 	if interval <= 0 {
 		interval = DefaultInterval
 	}
 
-	m.countersStruct = counters
-	m.countersPrefix = prefix
+	m.metricStruct = metrics
+	m.metricPrefix = prefix
 	m.interval = interval
-	m.countersMap = m.initCounters(counters)
+	m.initMetrics(metrics)
 
 	// zero all counters
 	m.metricsLast = m.GetAll()
@@ -108,26 +125,28 @@ func (m *Metrics) Init(counters interface{}, prefix string, interval int) error 
 	return nil
 }
 
-func validateCounters(counters interface{}) error {
+func validateMetrics(metrics interface{}) error {
 	// check type of counters is pointer to struct
-	t := reflect.TypeOf(counters)
+	t := reflect.TypeOf(metrics)
 	if t.Kind() != reflect.Ptr {
-		return ErrStructPtrType
+		return errStructPtrType
 	}
+
 	s := t.Elem()
 	if s.Kind() != reflect.Struct {
-		return ErrStructPtrType
+		return errStructPtrType
 	}
 
-	// check type of struct field is *Counter
-	var c *Counter
-	k := reflect.TypeOf(c).Kind()
-
+	// check type of struct field is *Counter || *Gauge
 	for i := 0; i < s.NumField(); i++ {
-		field := s.Field(i)
+		ft := s.Field(i).Type
+		if ft.Kind() != reflect.Ptr {
+			return errStructFieldType
+		}
 
-		if field.Type.Kind() != k {
-			return ErrStructFieldType
+		fn := ft.Elem().Name()
+		if _, ok := supportTypes[fn]; !ok {
+			return errStructFieldType
 		}
 	}
 
@@ -136,9 +155,10 @@ func validateCounters(counters interface{}) error {
 
 // GetAll gets absoulute values for all counters
 func (m *Metrics) GetAll() *MetricsData {
-	d := NewMetricsData(m.countersPrefix, KindTotal)
-	for k, c := range m.countersMap {
-		d.Data[k] = c.Get()
+	d := NewMetricsData(m.metricPrefix, KindTotal)
+	for k, c := range m.metricsMap {
+		d.DataTypes[k] = c.Type()
+		d.Data[k] = int64(c.Get())
 	}
 	return d
 }
@@ -152,11 +172,11 @@ func (m *Metrics) GetDiff() *MetricsData {
 	return diff
 }
 
-// initCounters initializes counters struct
-func (m *Metrics) initCounters(s interface{}) map[string]*Counter {
+// initMetrics initializes metrics struct
+func (m *Metrics) initMetrics(s interface{}) {
+	m.metricsMap = make(map[string]Metric)
 	t := reflect.TypeOf(s).Elem()
 	v := reflect.ValueOf(s).Elem()
-	counters := make(map[string]*Counter)
 
 	for i := 0; i < v.NumField(); i++ {
 		field := t.Field(i)
@@ -164,14 +184,19 @@ func (m *Metrics) initCounters(s interface{}) map[string]*Counter {
 
 		// track created counters
 		name := m.convert(field.Name)
-		cntr := new(Counter)
-		counters[name] = cntr
 
-		// init struct field
-		value.Set(reflect.ValueOf(cntr))
+		var metric Metric
+
+		switch mType := field.Type.Elem().Name(); mType {
+		case TypeCounter:
+			metric = new(Counter)
+		case TypeGauge:
+			metric = new(Gauge)
+		}
+
+		m.metricsMap[name] = metric
+		value.Set(reflect.ValueOf(metric))
 	}
-
-	return counters
 }
 
 // convert converts name from CamelCase to UnderScoreCase
@@ -221,28 +246,37 @@ func (m *Metrics) updateDiff() {
 }
 
 type MetricsData struct {
-	Prefix string
-	Kind   string
-	Data   map[string]int64
+	Prefix    string
+	Kind      string
+	DataTypes map[string]string
+	Data      map[string]int64
 }
 
 func NewMetricsData(prefix string, kind string) *MetricsData {
 	d := new(MetricsData)
 	d.Prefix = prefix
 	d.Kind = kind
+	d.DataTypes = make(map[string]string)
 	d.Data = make(map[string]int64)
 	return d
 }
 
 func (d *MetricsData) Diff(last *MetricsData) *MetricsData {
-	diff := NewMetricsData(d.Prefix, KindDelta)
+	diff := NewMetricsData(d.Prefix+"_diff", KindDelta)
+	diff.DataTypes = d.DataTypes
 
 	for k, v := range d.Data {
+		dt, _ := d.DataTypes[k]
+		if dt == TypeGauge {
+			continue
+		}
+
 		if v2, ok := last.Data[k]; ok {
 			diff.Data[k] = v - v2
 		} else {
 			diff.Data[k] = v
 		}
+
 	}
 	return diff
 }
@@ -258,15 +292,20 @@ func (d *MetricsData) Sum(d2 *MetricsData) *MetricsData {
 	return d
 }
 
-func (d *MetricsData) Value() []byte {
-	p := d.Prefix
-	if d.Kind == KindDelta {
-		p = p + "_diff"
-	}
-
+func (d *MetricsData) KeyValueFormat() []byte {
 	var b bytes.Buffer
 	for k, v := range d.Data {
-		line := fmt.Sprintf("%s_%s:%d\n", p, k, v)
+		line := fmt.Sprintf("%s_%s: %d\n", d.Prefix, k, v)
+		b.WriteString(line)
+	}
+	return b.Bytes()
+}
+
+func (d *MetricsData) PrometheusFormat() []byte {
+	var b bytes.Buffer
+	for k, v := range d.Data {
+		key := fmt.Sprintf("%s_%s", d.Prefix, k)
+		line := fmt.Sprintf("# TYPE %s %s\n%s %d\n", key, strings.ToLower(d.DataTypes[k]), key, v)
 		b.WriteString(line)
 	}
 	return b.Bytes()
@@ -282,7 +321,9 @@ func (d *MetricsData) Format(params map[string][]string) ([]byte, error) {
 	case "json":
 		return json.Marshal(d)
 	case "kv":
-		return d.Value(), nil
+		return d.KeyValueFormat(), nil
+	case "prometheus":
+		return d.PrometheusFormat(), nil
 	default:
 		return nil, fmt.Errorf("invalid format: %s", format)
 	}

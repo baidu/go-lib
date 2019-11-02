@@ -18,26 +18,34 @@ import (
 	"sync/atomic"
 )
 
-// Counter is a cumulative metric that represents a single monotonically increasing counter
-// whose value can only increase or be reset to zero on restart
-type Counter uint64
+// Gauge is a Metric that represents a single numerical value that can
+// arbitrarily go up and down.
+type Gauge int64
 
-// Inc increases counter
-func (c *Counter) Inc(delta uint) {
+// Inc increases gauge
+func (c *Gauge) Inc(delta uint) {
 	if c == nil {
 		return
 	}
-	atomic.AddUint64((*uint64)(c), uint64(delta))
+	atomic.AddInt64((*int64)(c), int64(delta))
 }
 
-// Get gets counter
-func (c *Counter) Get() int64 {
+// Dec decreases gauge
+func (c *Gauge) Dec(delta uint) {
+	if c == nil {
+		return
+	}
+	atomic.AddInt64((*int64)(c), int64(-delta))
+}
+
+// Get gets gauge
+func (c *Gauge) Get() int64 {
 	if c == nil {
 		return 0
 	}
-	return int64(atomic.LoadUint64((*uint64)(c)))
+	return atomic.LoadInt64((*int64)(c))
 }
 
-func (c *Counter) Type() string {
-	return TypeCounter
+func (c *Gauge) Type() string {
+	return TypeGauge
 }

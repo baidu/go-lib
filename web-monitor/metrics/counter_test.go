@@ -15,29 +15,20 @@
 package metrics
 
 import (
-	"sync/atomic"
+	"testing"
 )
 
-// Counter is a cumulative metric that represents a single monotonically increasing counter
-// whose value can only increase or be reset to zero on restart
-type Counter uint64
-
-// Inc increases counter
-func (c *Counter) Inc(delta uint) {
-	if c == nil {
-		return
+func TestCounterGet(t *testing.T) {
+	var c Counter
+	if c.Get() != 0 {
+		t.Errorf("init counter expect 0, but is:%d", c.Get())
 	}
-	atomic.AddUint64((*uint64)(c), uint64(delta))
 }
 
-// Get gets counter
-func (c *Counter) Get() int64 {
-	if c == nil {
-		return 0
+func TestCounterInc(t *testing.T) {
+	var c Counter
+	c.Inc(10)
+	if c.Get() != 10 {
+		t.Errorf("after inc 10, counter expected to be 10, but is:%d", c.Get())
 	}
-	return int64(atomic.LoadUint64((*uint64)(c)))
-}
-
-func (c *Counter) Type() string {
-	return TypeCounter
 }

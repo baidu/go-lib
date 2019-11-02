@@ -32,7 +32,7 @@ type MockState struct {
 	ModuleCounter5 *Counter
 	ModuleCounter6 *Counter
 	ModuleCounter7 *Counter
-	ModuleCounter8 *Counter
+	ModuleCounter8 *Gauge
 	ModuleCounter9 *Counter
 }
 
@@ -68,7 +68,7 @@ func TestMetricsGetAll(t *testing.T) {
 	s.ModuleCounter2.Inc(1)
 	s.ModuleCounter2.Inc(1)
 	s.ModuleCounter4.Inc(4)
-	s.ModuleCounter8.Inc(-2)
+	s.ModuleCounter8.Dec(2)
 
 	d := m.GetAll()
 
@@ -84,8 +84,8 @@ func TestMetricsGetAll(t *testing.T) {
 	r.Data["MODULE_COUNTER8"] = int64(-2)
 	r.Data["MODULE_COUNTER9"] = int64(0)
 
-	if !reflect.DeepEqual(d, r) {
-		t.Errorf("GetAll(): expect %v, actual %v", r, d)
+	if !reflect.DeepEqual(d.Data, r.Data) {
+		t.Errorf("GetAll(): expect %v, actual %v", r.Data, d.Data)
 	}
 }
 
@@ -103,17 +103,15 @@ func TestMetricsGetDiff(t *testing.T) {
 	r.Data["MODULE_COUNTER5"] = int64(0)
 	r.Data["MODULE_COUNTER6"] = int64(0)
 	r.Data["MODULE_COUNTER7"] = int64(0)
-	r.Data["MODULE_COUNTER8"] = int64(0)
 	r.Data["MODULE_COUNTER9"] = int64(0)
 
-	if !reflect.DeepEqual(d, r) {
-		t.Errorf("GetAll(): expect %v, actual %v", r, d)
+	if !reflect.DeepEqual(d.Data, r.Data) {
+		t.Errorf("GetDiff(): expect %v, actual %v", r.Data, d.Data)
 	}
 
 	// case 2
 	s.ModuleCounter0.Inc(1)
 	s.ModuleCounter4.Inc(4)
-	s.ModuleCounter8.Inc(-2)
 	m.updateDiff()
 	d = m.GetDiff()
 	r = NewMetricsData("METRICS", KindDelta)
@@ -125,10 +123,9 @@ func TestMetricsGetDiff(t *testing.T) {
 	r.Data["MODULE_COUNTER5"] = int64(0)
 	r.Data["MODULE_COUNTER6"] = int64(0)
 	r.Data["MODULE_COUNTER7"] = int64(0)
-	r.Data["MODULE_COUNTER8"] = int64(-2)
 	r.Data["MODULE_COUNTER9"] = int64(0)
 
-	if !reflect.DeepEqual(d, r) {
+	if !reflect.DeepEqual(d.Data, r.Data) {
 		t.Errorf("GetAll(): expect %v, actual %v", r, d)
 	}
 }
@@ -143,7 +140,7 @@ type CaseStructB struct {
 
 type CaseStructC struct {
 	c *Counter
-	i int64
+	I *CaseStructA
 }
 
 func TestInvalidCounter(t *testing.T) {
@@ -152,19 +149,19 @@ func TestInvalidCounter(t *testing.T) {
 	// case 1
 	var s1 CaseStructA
 	if err := m.Init(s1, "METRICS", 20); err == nil {
-		t.Errorf("expect error: %s", ErrStructPtrType)
+		t.Errorf("expect error: %s", errStructPtrType)
 	}
 
 	// case 2
 	var s2 CaseStructB
 	if err := m.Init(&s2, "METRICS", 20); err == nil {
-		t.Errorf("expect error: %s", ErrStructFieldType)
+		t.Errorf("expect error: %s", errStructFieldType)
 	}
 
 	// case 3
 	var s3 CaseStructC
 	if err := m.Init(&s3, "METRICS", 20); err == nil {
-		t.Errorf("expect error: %s", ErrStructFieldType)
+		t.Errorf("expect error: %s", errStructFieldType)
 	}
 }
 
@@ -181,8 +178,8 @@ func TestMetricsData(t *testing.T) {
 	de.Data["MODULE_COUNTER3"] = 40
 
 	d := d2.Diff(d1)
-	if !reflect.DeepEqual(de, d) {
-		t.Errorf("expect %v, actual %v", de, d)
+	if !reflect.DeepEqual(de.Data, d.Data) {
+		t.Errorf("expect %v, actual %v", de.Data, d.Data)
 	}
 }
 
