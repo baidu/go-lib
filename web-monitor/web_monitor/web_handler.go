@@ -19,6 +19,7 @@ package web_monitor
 import (
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"net/url"
 )
 
@@ -26,13 +27,13 @@ import (
 const (
 	WEB_HANDLE_MONITOR = 0 // handler for monitor
 	WEB_HANDLE_RELOAD  = 1 // handler for reload
-	WEB_HANDLE_PPROF  = 2 // handler for pprof
+	WEB_HANDLE_PPROF   = 2 // handler for pprof
 )
 
 var handlerTypeNames = map[int]string{
 	0: "monitor",
 	1: "reload",
-	2: "pprof",
+	2: "debug",
 }
 
 type WebHandlerMap map[string]interface{}
@@ -47,6 +48,17 @@ func NewWebHandlerMap() *WebHandlerMap {
 	return &whm
 }
 
+func pprofHandlers() *WebHandlerMap {
+	handlers := &WebHandlerMap{
+		"pprof":   pprof.Index,
+		"cmdline": pprof.Cmdline,
+		"profile": pprof.Profile,
+		"symbol":  pprof.Symbol,
+		"trace":   pprof.Trace,
+	}
+	return handlers
+}
+
 // NewWebHandlers creates new WebHandlers
 func NewWebHandlers() *WebHandlers {
 	// create bfeCallbacks
@@ -58,7 +70,7 @@ func NewWebHandlers() *WebHandlers {
 	// handlers for reload
 	wh.Handlers[WEB_HANDLE_RELOAD] = NewWebHandlerMap()
 	// handlers for pprof
-	wh.Handlers[WEB_HANDLE_PPROF] = NewWebHandlerMap()
+	wh.Handlers[WEB_HANDLE_PPROF] = pprofHandlers()
 
 	return wh
 }

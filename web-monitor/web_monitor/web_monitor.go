@@ -137,7 +137,7 @@ func (srv *MonitorServer) subManualShow(hType int) []byte {
 	case WEB_HANDLE_RELOAD:
 		typeStr = "reload"
 	case WEB_HANDLE_PPROF:
-		typeStr = "pprof"
+		typeStr = "debug"
 	}
 
 	str := "<html>\n"
@@ -166,7 +166,7 @@ func (srv *MonitorServer) manualShow() []byte {
 	str += fmt.Sprintf("<p>start_at: %s</p>\n", srv.startAt)
 	str = str + fmt.Sprintf("<p><a href=\"/monitor\">monitor</a></p>\n")
 	str = str + fmt.Sprintf("<p><a href=\"/reload\">reload</a></p>\n")
-	str = str + fmt.Sprintf("<p><a href=\"/pprof\">pprof</a></p>\n")
+	str = str + fmt.Sprintf("<p><a href=\"/debug\">debug</a></p>\n")
 
 	str += "</body>"
 	str += "</html>"
@@ -298,7 +298,7 @@ func (srv *MonitorServer) pprofHandler(command string, w http.ResponseWriter, r 
 	// invoke handler for monitor
 	switch f.(type) {
 	case func(w http.ResponseWriter, r *http.Request):
-		f.(func(w http.ResponseWriter, r *http.Request))(w,r)
+		f.(func(w http.ResponseWriter, r *http.Request))(w, r)
 	}
 
 	return err
@@ -330,7 +330,7 @@ func (srv *MonitorServer) webHandler(w http.ResponseWriter, r *http.Request) {
 		case "reload":
 			buff = srv.subManualShow(WEB_HANDLE_RELOAD)
 			err = nil
-		case "pprof":
+		case "debug":
 			buff = srv.subManualShow(WEB_HANDLE_PPROF)
 			err = nil
 		default:
@@ -342,7 +342,7 @@ func (srv *MonitorServer) webHandler(w http.ResponseWriter, r *http.Request) {
 			buff, err = srv.monitorHandler(commands[1], params)
 		case "reload":
 			buff, err = srv.reloadHandler(commands[1], params, r.RemoteAddr)
-		case "pprof":
+		case "debug":
 			err = srv.pprofHandler(commands[1], w, r)
 		default:
 			err = fmt.Errorf("invalid command [%s]", commands[0])
