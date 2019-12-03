@@ -40,6 +40,8 @@ func RegisterHandlers(wh *WebHandlers, hType int, ht map[string]interface{}) err
 		typeStr = "MONITOR"
 	case WEB_HANDLE_RELOAD:
 		typeStr = "RELOAD"
+	case WEB_HANDLE_PPROF:
+		typeStr = "PPROF"
 	default:
 		return fmt.Errorf("invalid handler type:%d", hType)
 	}
