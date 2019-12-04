@@ -225,35 +225,28 @@ func NewTimeFileLogWriter(fname string, when string, backupCount int) *TimeFileL
 			}
 		}()
 
-		for {
-			select {
-			case rec, ok := <-w.rec:
-				if !ok {
-					return
-				}
+		for rec := range w.rec {
+			if w.EndNotify(rec) {
+				return
+			}
 
-				if w.EndNotify(rec) {
-					return
-				}
-
-				if w.shouldRollover() {
-					if err := w.intRotate(); err != nil {
-						fmt.Fprintf(os.Stderr, "NewTimeFileLogWriter(%q): %s\n", w.filename, err)
-						return
-					}
-				}
-
-				// Perform the write
-				var err error
-				if rec.Binary != nil {
-					_, err = w.file.Write(rec.Binary)
-				} else {
-					_, err = fmt.Fprint(w.file, FormatLogRecord(w.format, rec))
-				}
-				if err != nil {
+			if w.shouldRollover() {
+				if err := w.intRotate(); err != nil {
 					fmt.Fprintf(os.Stderr, "NewTimeFileLogWriter(%q): %s\n", w.filename, err)
 					return
 				}
+			}
+
+			// Perform the write
+			var err error
+			if rec.Binary != nil {
+				_, err = w.file.Write(rec.Binary)
+			} else {
+				_, err = fmt.Fprint(w.file, FormatLogRecord(w.format, rec))
+			}
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "NewTimeFileLogWriter(%q): %s\n", w.filename, err)
+				return
 			}
 		}
 	}()
