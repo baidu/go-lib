@@ -72,7 +72,7 @@ func (srv *MonitorServer) RegisterHandler(hType int, command string, f interface
 	var err error
 
 	switch hType {
-	case WEB_HANDLE_MONITOR, WEB_HANDLE_RELOAD, WEB_HANDLE_PPROF:
+	case WebHandleMonitor, WebHandleReload, WebHandlePprof:
 		err = srv.webHandlers.RegisterHandler(hType, command, f)
 	default:
 		err = fmt.Errorf("invalid handler type[%d]", hType)
@@ -84,13 +84,13 @@ func (srv *MonitorServer) RegisterHandler(hType int, command string, f interface
 // RegisterHandlers registers handlers in handler-table to WebHandlers
 //
 // Params:
-//      - hType : hanlder type, WEB_HANDLE_MONITOR or WEB_HANDLE_RELOAD
+//      - hType : hanlder type, WebHandleMonitor or WebHandleReload or WebHandlePprof
 //      - ht    : handler table
 func (srv *MonitorServer) RegisterHandlers(hType int, ht map[string]interface{}) error {
 	var err error
 
 	switch hType {
-	case WEB_HANDLE_MONITOR, WEB_HANDLE_RELOAD, WEB_HANDLE_PPROF:
+	case WebHandleMonitor, WebHandleReload, WebHandlePprof:
 		err = RegisterHandlers(srv.webHandlers, hType, ht)
 	default:
 		err = fmt.Errorf("invalid handler type[%d]", hType)
@@ -132,11 +132,11 @@ func (srv *MonitorServer) subManualShow(hType int) []byte {
 
 	var typeStr string
 	switch hType {
-	case WEB_HANDLE_MONITOR:
+	case WebHandleMonitor:
 		typeStr = "monitor"
-	case WEB_HANDLE_RELOAD:
+	case WebHandleReload:
 		typeStr = "reload"
-	case WEB_HANDLE_PPROF:
+	case WebHandlePprof:
 		typeStr = "debug"
 	}
 
@@ -200,7 +200,7 @@ func (srv *MonitorServer) monitorHandler(command string,
 	}()
 
 	// get handler
-	f, err = srv.webHandlers.GetHandler(WEB_HANDLE_MONITOR, command)
+	f, err = srv.webHandlers.GetHandler(WebHandleMonitor, command)
 	if err != nil {
 		return buff, err
 	}
@@ -240,7 +240,7 @@ func (srv *MonitorServer) reloadHandler(command string, params map[string][]stri
 	}
 
 	// get handler
-	f, err = srv.webHandlers.GetHandler(WEB_HANDLE_RELOAD, command)
+	f, err = srv.webHandlers.GetHandler(WebHandleReload, command)
 	if err != nil {
 		return buff, err
 	}
@@ -290,7 +290,7 @@ func (srv *MonitorServer) pprofHandler(command string, w http.ResponseWriter, r 
 	}()
 
 	// get handler
-	f, err = srv.webHandlers.GetHandler(WEB_HANDLE_PPROF, command)
+	f, err = srv.webHandlers.GetHandler(WebHandlePprof, command)
 	if err != nil {
 		return err
 	}
@@ -325,13 +325,13 @@ func (srv *MonitorServer) webHandler(w http.ResponseWriter, r *http.Request) {
 	case 1:
 		switch commands[0] {
 		case "monitor":
-			buff = srv.subManualShow(WEB_HANDLE_MONITOR)
+			buff = srv.subManualShow(WebHandleMonitor)
 			err = nil
 		case "reload":
-			buff = srv.subManualShow(WEB_HANDLE_RELOAD)
+			buff = srv.subManualShow(WebHandleReload)
 			err = nil
 		case "debug":
-			buff = srv.subManualShow(WEB_HANDLE_PPROF)
+			buff = srv.subManualShow(WebHandlePprof)
 			err = nil
 		default:
 			err = fmt.Errorf("invalid command [%s]", commands[0])

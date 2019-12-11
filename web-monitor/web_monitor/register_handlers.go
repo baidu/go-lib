@@ -25,7 +25,7 @@ import (
 //
 // Params:
 //      - wh    : WebHandlers
-//      - hType : hanlder type, WEB_HANDLE_MONITOR or WEB_HANDLE_RELOAD
+//      - hType : hanlder type, WebHandleMonitor or WebHandleReload or WebHandlePprof
 //      - ht    : handler table
 func RegisterHandlers(wh *WebHandlers, hType int, ht map[string]interface{}) error {
 	// check WebHandlers
@@ -36,11 +36,11 @@ func RegisterHandlers(wh *WebHandlers, hType int, ht map[string]interface{}) err
 	// check hType
 	var typeStr string
 	switch hType {
-	case WEB_HANDLE_MONITOR:
+	case WebHandleMonitor:
 		typeStr = "MONITOR"
-	case WEB_HANDLE_RELOAD:
+	case WebHandleReload:
 		typeStr = "RELOAD"
-	case WEB_HANDLE_PPROF:
+	case WebHandlePprof:
 		typeStr = "PPROF"
 	default:
 		return fmt.Errorf("invalid handler type:%d", hType)
