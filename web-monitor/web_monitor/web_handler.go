@@ -25,9 +25,9 @@ import (
 
 // type of web handler
 const (
-	WEB_HANDLE_MONITOR = 0 // handler for monitor
-	WEB_HANDLE_RELOAD  = 1 // handler for reload
-	WEB_HANDLE_PPROF   = 2 // handler for pprof
+	WebHandleMonitor = 0 // handler for monitor
+	WebHandleReload  = 1 // handler for reload
+	WebHandlePprof   = 2 // handler for pprof
 )
 
 var handlerTypeNames = map[int]string{
@@ -66,11 +66,11 @@ func NewWebHandlers() *WebHandlers {
 	wh.Handlers = make(map[int]*WebHandlerMap)
 
 	// handlers for monitor
-	wh.Handlers[WEB_HANDLE_MONITOR] = NewWebHandlerMap()
+	wh.Handlers[WebHandleMonitor] = NewWebHandlerMap()
 	// handlers for reload
-	wh.Handlers[WEB_HANDLE_RELOAD] = NewWebHandlerMap()
+	wh.Handlers[WebHandleReload] = NewWebHandlerMap()
 	// handlers for pprof
-	wh.Handlers[WEB_HANDLE_PPROF] = pprofHandlers()
+	wh.Handlers[WebHandlePprof] = pprofHandlers()
 
 	return wh
 }
@@ -78,7 +78,7 @@ func NewWebHandlers() *WebHandlers {
 func (wh *WebHandlers) validateHandler(hType int, f interface{}) error {
 	var err error
 	switch hType {
-	case WEB_HANDLE_MONITOR:
+	case WebHandleMonitor:
 		switch f.(type) {
 		case func() ([]byte, error):
 		case func(map[string][]string) ([]byte, error):
@@ -87,7 +87,7 @@ func (wh *WebHandlers) validateHandler(hType int, f interface{}) error {
 			err = fmt.Errorf("invalid monitor handler type %T", f)
 		}
 
-	case WEB_HANDLE_RELOAD:
+	case WebHandleReload:
 		switch f.(type) {
 		case func() error:
 		case func(map[string][]string) error:
@@ -96,7 +96,7 @@ func (wh *WebHandlers) validateHandler(hType int, f interface{}) error {
 		default:
 			err = fmt.Errorf("invalid reload handler type %T", f)
 		}
-	case WEB_HANDLE_PPROF:
+	case WebHandlePprof:
 		switch f.(type) {
 		case func(w http.ResponseWriter, r *http.Request):
 		default:
