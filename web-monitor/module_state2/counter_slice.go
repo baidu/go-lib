@@ -61,8 +61,8 @@ type CounterSlice struct {
 	countersLast Counters //  last absolute counter
 	countersDiff Counters //  diff in last duration
 
-	keyPrefix string     //  for key-value string
-	programName   string //  program name, e.g., 'bfe', for displaying variable in key-value string
+	keyPrefix   string //  for key-value string
+	programName string //  program name, e.g., 'bfe', for displaying variable in key-value string
 }
 
 type CounterDiff struct {
@@ -71,8 +71,8 @@ type CounterDiff struct {
 
 	Diff Counters
 
-	KeyPrefix string     // for key-value string
-	ProgramName   string // for program name
+	KeyPrefix   string // for key-value string
+	ProgramName string // for program name
 }
 
 // SetKeyPrefix sets key prefix
@@ -175,7 +175,7 @@ func (cd *CounterDiff) FormatOutput(params map[string][]string) ([]byte, error) 
 		return json.Marshal(cd)
 	case "hier_json":
 		return GetCdHierJson(cd)
-	case "kv":
+	case "kv", "noah":
 		return cd.KV(), nil
 	case "kv_with_program_name":
 		return cd.KVWithProgramName(), nil
