@@ -45,12 +45,12 @@ import (
 
 // StateData holds state data
 type StateData struct {
-	SCounters     Counters          // for count up
-	States        map[string]string // for store states
-	NumStates     Counters          // for store num states
-	FloatStates   FloatCounters     // for store float states
-	KeyPrefix string                // for key-value output
-	ProgramName   string            // for program name
+	SCounters   Counters          // for count up
+	States      map[string]string // for store states
+	NumStates   Counters          // for store num states
+	FloatStates FloatCounters     // for store float states
+	KeyPrefix   string            // for key-value output
+	ProgramName string            // for program name
 }
 
 // State is state with mutex protect
@@ -110,7 +110,7 @@ func (sd *StateData) KVWithProgramName() []byte {
 	return sd.kv(true)
 }
 
-// escapeQuote escapes "\" 
+// escapeQuote escapes "\"
 func escapeQuote(value string) string {
 	return strings.Replace(value, "\"", "\\\"", -1)
 }
@@ -163,7 +163,7 @@ func (sd *StateData) FormatOutput(params map[string][]string) ([]byte, error) {
 		return json.Marshal(sd)
 	case "hier_json":
 		return GetSdHierJson(sd)
-	case "kv":
+	case "kv", "noah":
 		return sd.KV(), nil
 	case "kv_with_program_name":
 		return sd.KVWithProgramName(), nil

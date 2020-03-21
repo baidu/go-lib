@@ -25,8 +25,8 @@ import (
 
 import (
 	"github.com/baidu/go-lib/web-monitor/delay_counter"
-	"github.com/baidu/go-lib/web-monitor/module_state2"
 	"github.com/baidu/go-lib/web-monitor/kv_encode"
+	"github.com/baidu/go-lib/web-monitor/module_state2"
 	"github.com/baidu/go-lib/web-monitor/web_params"
 )
 
@@ -58,7 +58,7 @@ func CreateStateDataHandler(getter GetStateDataFunc) interface{} {
 		switch format {
 		case "json":
 			buff, err = json.Marshal(state)
-		case "kv":
+		case "kv", "noah":
 			buff = state.KV()
 		case "kv_with_program_name":
 			buff = state.KVWithProgramName()
@@ -92,7 +92,7 @@ func CreateDelayOutputHandler(getter GetDelayOutputFunc) interface{} {
 		switch format {
 		case "json":
 			buff, err = delay.GetJson()
-		case "kv":
+		case "kv", "noah":
 			buff = delay.GetKV()
 		case "kv_with_program_name":
 			buff = delay.GetKVWithProgramName()
@@ -126,7 +126,7 @@ func CreateCounterDiffHandler(getter GetCounterDiffFunc) interface{} {
 		switch format {
 		case "json":
 			buff, err = json.Marshal(diff)
-		case "kv":
+		case "kv", "noah":
 			buff = diff.KV()
 		case "kv_with_program_name":
 			buff = diff.KVWithProgramName()
@@ -158,7 +158,7 @@ func CreateMemStatsHandler(keyPrefix string) interface{} {
 		switch format {
 		case "json":
 			buff, err = json.Marshal(stat)
-		case "kv":
+		case "kv", "noah":
 			buff, err = MemStatsKVEncode(stat, keyPrefix)
 		default:
 			err = fmt.Errorf("invalid format:%s", format)
