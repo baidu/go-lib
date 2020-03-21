@@ -18,42 +18,30 @@ import (
 	"sync/atomic"
 )
 
-// Gauge is a Metric that represents a single numerical value that can
-// arbitrarily go up and down.
-type Gauge int64
+type State atomic.Value
 
-// Inc increases gauge
-func (c *Gauge) Inc(delta uint) {
-	if c == nil {
+// Set sets state
+func (s *State) Set(v string) {
+	if s == nil {
 		return
 	}
-	atomic.AddInt64((*int64)(c), int64(delta))
+
+	(*atomic.Value)(s).Store(v)
 }
 
-// Dec decreases gauge
-func (c *Gauge) Dec(delta uint) {
-	if c == nil {
-		return
+// Get gets state
+func (s *State) Get() string {
+	if s == nil {
+		return ""
 	}
-	atomic.AddInt64((*int64)(c), int64(-delta))
-}
 
-// Get gets gauge
-func (c *Gauge) Get() int64 {
-	if c == nil {
-		return 0
+	v := (*atomic.Value)(s).Load()
+	if v == nil {
+		return ""
 	}
-	return atomic.LoadInt64((*int64)(c))
+	return v.(string)
 }
 
-// Set sets gauge
-func (c *Gauge) Set(v int64) {
-	if c == nil {
-		return
-	}
-	atomic.StoreInt64((*int64)(c), v)
-}
-
-func (c *Gauge) Type() string {
-	return TypeGauge
+func (s *State) Type() string {
+	return TypeState
 }

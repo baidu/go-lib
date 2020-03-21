@@ -33,7 +33,7 @@ type MockState struct {
 	ModuleCounter6 *Counter
 	ModuleCounter7 *Counter
 	ModuleCounter8 *Gauge
-	ModuleCounter9 *Counter
+	ModuleCounter9 *State
 }
 
 func prepareMetricsState() (*Metrics, *MockState) {
@@ -69,23 +69,31 @@ func TestMetricsGetAll(t *testing.T) {
 	s.ModuleCounter2.Inc(1)
 	s.ModuleCounter4.Inc(4)
 	s.ModuleCounter8.Dec(2)
+	s.ModuleCounter9.Set("version")
 
 	d := m.GetAll()
 
 	r := NewMetricsData("METRICS", KindTotal)
-	r.Data["MODULE_COUNTER0"] = int64(1)
-	r.Data["MODULE_COUNTER1"] = int64(0)
-	r.Data["MODULE_COUNTER2"] = int64(2)
-	r.Data["MODULE_COUNTER3"] = int64(0)
-	r.Data["MODULE_COUNTER4"] = int64(4)
-	r.Data["MODULE_COUNTER5"] = int64(0)
-	r.Data["MODULE_COUNTER6"] = int64(0)
-	r.Data["MODULE_COUNTER7"] = int64(0)
-	r.Data["MODULE_COUNTER8"] = int64(-2)
-	r.Data["MODULE_COUNTER9"] = int64(0)
+	r.CounterData["MODULE_COUNTER0"] = int64(1)
+	r.CounterData["MODULE_COUNTER1"] = int64(0)
+	r.CounterData["MODULE_COUNTER2"] = int64(2)
+	r.CounterData["MODULE_COUNTER3"] = int64(0)
+	r.CounterData["MODULE_COUNTER4"] = int64(4)
+	r.CounterData["MODULE_COUNTER5"] = int64(0)
+	r.CounterData["MODULE_COUNTER6"] = int64(0)
+	r.CounterData["MODULE_COUNTER7"] = int64(0)
+	r.GaugeData["MODULE_COUNTER8"] = int64(-2)
+	if !reflect.DeepEqual(d.CounterData, r.CounterData) {
+		t.Errorf("GetAll(): expect %v, actual %v", r.CounterData, d.CounterData)
+	}
 
-	if !reflect.DeepEqual(d.Data, r.Data) {
-		t.Errorf("GetAll(): expect %v, actual %v", r.Data, d.Data)
+	if !reflect.DeepEqual(d.GaugeData, r.GaugeData) {
+		t.Errorf("GetAll(): expect %v, actual %v", r.GaugeData, d.GaugeData)
+	}
+
+	r.StateData["MODULE_COUNTER9"] = "version"
+	if !reflect.DeepEqual(d.StateData, r.StateData) {
+		t.Errorf("GetAll():  states expect %v, actual %v", r.StateData, d.StateData)
 	}
 }
 
@@ -95,18 +103,17 @@ func TestMetricsGetDiff(t *testing.T) {
 	// case 1
 	d := m.GetDiff()
 	r := NewMetricsData("METRICS", KindDelta)
-	r.Data["MODULE_COUNTER0"] = int64(0)
-	r.Data["MODULE_COUNTER1"] = int64(0)
-	r.Data["MODULE_COUNTER2"] = int64(0)
-	r.Data["MODULE_COUNTER3"] = int64(0)
-	r.Data["MODULE_COUNTER4"] = int64(0)
-	r.Data["MODULE_COUNTER5"] = int64(0)
-	r.Data["MODULE_COUNTER6"] = int64(0)
-	r.Data["MODULE_COUNTER7"] = int64(0)
-	r.Data["MODULE_COUNTER9"] = int64(0)
+	r.CounterData["MODULE_COUNTER0"] = int64(0)
+	r.CounterData["MODULE_COUNTER1"] = int64(0)
+	r.CounterData["MODULE_COUNTER2"] = int64(0)
+	r.CounterData["MODULE_COUNTER3"] = int64(0)
+	r.CounterData["MODULE_COUNTER4"] = int64(0)
+	r.CounterData["MODULE_COUNTER5"] = int64(0)
+	r.CounterData["MODULE_COUNTER6"] = int64(0)
+	r.CounterData["MODULE_COUNTER7"] = int64(0)
 
-	if !reflect.DeepEqual(d.Data, r.Data) {
-		t.Errorf("GetDiff(): expect %v, actual %v", r.Data, d.Data)
+	if !reflect.DeepEqual(d.CounterData, r.CounterData) {
+		t.Errorf("GetDiff(): expect %v, actual %v", r.CounterData, d.CounterData)
 	}
 
 	// case 2
@@ -115,17 +122,16 @@ func TestMetricsGetDiff(t *testing.T) {
 	m.updateDiff()
 	d = m.GetDiff()
 	r = NewMetricsData("METRICS", KindDelta)
-	r.Data["MODULE_COUNTER0"] = int64(1)
-	r.Data["MODULE_COUNTER1"] = int64(0)
-	r.Data["MODULE_COUNTER2"] = int64(0)
-	r.Data["MODULE_COUNTER3"] = int64(0)
-	r.Data["MODULE_COUNTER4"] = int64(4)
-	r.Data["MODULE_COUNTER5"] = int64(0)
-	r.Data["MODULE_COUNTER6"] = int64(0)
-	r.Data["MODULE_COUNTER7"] = int64(0)
-	r.Data["MODULE_COUNTER9"] = int64(0)
+	r.CounterData["MODULE_COUNTER0"] = int64(1)
+	r.CounterData["MODULE_COUNTER1"] = int64(0)
+	r.CounterData["MODULE_COUNTER2"] = int64(0)
+	r.CounterData["MODULE_COUNTER3"] = int64(0)
+	r.CounterData["MODULE_COUNTER4"] = int64(4)
+	r.CounterData["MODULE_COUNTER5"] = int64(0)
+	r.CounterData["MODULE_COUNTER6"] = int64(0)
+	r.CounterData["MODULE_COUNTER7"] = int64(0)
 
-	if !reflect.DeepEqual(d.Data, r.Data) {
+	if !reflect.DeepEqual(d.CounterData, r.CounterData) {
 		t.Errorf("GetAll(): expect %v, actual %v", r, d)
 	}
 }
@@ -170,16 +176,16 @@ func TestMetricsData(t *testing.T) {
 	d2 := NewMetricsData("METRIX", KindTotal)
 	de := NewMetricsData("METRIX", KindDelta)
 
-	d1.Data["MODULE_COUNTER1"] = 10
-	d1.Data["MODULE_COUNTER2"] = 20
-	d2.Data["MODULE_COUNTER2"] = 30
-	d2.Data["MODULE_COUNTER3"] = 40
-	de.Data["MODULE_COUNTER2"] = 10
-	de.Data["MODULE_COUNTER3"] = 40
+	d1.CounterData["MODULE_COUNTER1"] = 10
+	d1.CounterData["MODULE_COUNTER2"] = 20
+	d2.CounterData["MODULE_COUNTER2"] = 30
+	d2.CounterData["MODULE_COUNTER3"] = 40
+	de.CounterData["MODULE_COUNTER2"] = 10
+	de.CounterData["MODULE_COUNTER3"] = 40
 
 	d := d2.Diff(d1)
-	if !reflect.DeepEqual(de.Data, d.Data) {
-		t.Errorf("expect %v, actual %v", de.Data, d.Data)
+	if !reflect.DeepEqual(de.CounterData, d.CounterData) {
+		t.Errorf("expect %v, actual %v", de.CounterData, d.CounterData)
 	}
 }
 
@@ -207,7 +213,6 @@ func BenchmarkMetricIncMulti(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.ModuleCounter4.Inc(1)
-		s.ModuleCounter9.Inc(1)
 		s.ModuleCounter0.Inc(1)
 		s.ModuleCounter6.Inc(1)
 	}
@@ -219,7 +224,6 @@ func BenchmarkStateIncMutli(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.Inc("MODULE_COUNTER4", 1)
-		s.Inc("MODULE_COUNTER9", 1)
 		s.Inc("MODULE_COUNTER0", 1)
 		s.Inc("MODULE_COUNTER6", 1)
 	}
