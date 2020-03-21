@@ -18,33 +18,17 @@ import (
 	"testing"
 )
 
-func TestGaugeGet(t *testing.T) {
-	var g Gauge
-	if g.Get() != 0 {
-		t.Errorf("init gauge expected 0, but is:%d", g.Get())
+func TestStateGet(t *testing.T) {
+	var s State
+	if s.Get() != "" {
+		t.Errorf("init state expect \"\", but is:%s", s.Get())
 	}
 }
 
-func TestGaugeInc(t *testing.T) {
-	var g Gauge
-	g.Inc(10)
-	if g.Get() != 10 {
-		t.Errorf("after inc 10, gauge expected 10, but is:%d", g.Get())
-	}
-}
-
-func TestGaugeDec(t *testing.T) {
-	var g Gauge
-	g.Dec(5)
-	if g.Get() != -5 {
-		t.Errorf("after dec 5, gauge expected -5, but is:%d", g.Get())
-	}
-}
-
-func TestGaugeSet(t *testing.T) {
-	var g Gauge
-	g.Set(3)
-	if g.Get() != 3 {
-		t.Errorf("after set 3, gauge expected 3, but is:%d", g.Get())
+func TestStateSet(t *testing.T) {
+	var s State
+	s.Set("test")
+	if s.Get() != "test" {
+		t.Errorf("after set, expected to be test, but is:%s", s.Get())
 	}
 }

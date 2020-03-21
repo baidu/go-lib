@@ -69,28 +69,26 @@ const (
 const (
 	TypeGauge   = "Gauge"
 	TypeCounter = "Counter"
+	TypeState   = "State"
 )
 
 var (
 	errStructPtrType   = errors.New("metrics should be struct pointor")
-	errStructFieldType = errors.New("struct field shoule be *Counter or *Gauge")
+	errStructFieldType = errors.New("struct field shoule be *Counter or *Gauge or *State")
 )
 
 var (
-	supportTypes = map[string]bool{TypeGauge: true, TypeCounter: true}
+	supportTypes = map[string]bool{TypeGauge: true, TypeCounter: true, TypeState: true}
 )
-
-type Metric interface {
-	Get() int64
-	Type() string
-}
 
 type Metrics struct {
 	// constant after initial
-	metricStruct interface{}       // underlying struct (pointor)
-	metricPrefix string            // name prefix for all metrics
-	interval     int               // diff interval
-	metricsMap   map[string]Metric // all metrics
+	metricStruct interface{} // underlying struct (pointor)
+	metricPrefix string      // name prefix for all metrics
+	interval     int         // diff interval
+	counterMap   map[string]*Counter
+	gaugeMap     map[string]*Gauge
+	stateMap     map[string]*State
 
 	// protect following fields
 	lock        sync.RWMutex
@@ -156,10 +154,18 @@ func validateMetrics(metrics interface{}) error {
 // GetAll gets absoulute values for all counters
 func (m *Metrics) GetAll() *MetricsData {
 	d := NewMetricsData(m.metricPrefix, KindTotal)
-	for k, c := range m.metricsMap {
-		d.DataTypes[k] = c.Type()
-		d.Data[k] = int64(c.Get())
+	for k, c := range m.counterMap {
+		d.CounterData[k] = int64(c.Get())
 	}
+
+	for k, c := range m.gaugeMap {
+		d.GaugeData[k] = int64(c.Get())
+	}
+
+	for k, s := range m.stateMap {
+		d.StateData[k] = s.Get()
+	}
+
 	return d
 }
 
@@ -174,7 +180,10 @@ func (m *Metrics) GetDiff() *MetricsData {
 
 // initMetrics initializes metrics struct
 func (m *Metrics) initMetrics(s interface{}) {
-	m.metricsMap = make(map[string]Metric)
+	m.counterMap = make(map[string]*Counter)
+	m.gaugeMap = make(map[string]*Gauge)
+	m.stateMap = make(map[string]*State)
+
 	t := reflect.TypeOf(s).Elem()
 	v := reflect.ValueOf(s).Elem()
 
@@ -185,17 +194,22 @@ func (m *Metrics) initMetrics(s interface{}) {
 		// track created counters
 		name := m.convert(field.Name)
 
-		var metric Metric
-
 		switch mType := field.Type.Elem().Name(); mType {
-		case TypeCounter:
-			metric = new(Counter)
-		case TypeGauge:
-			metric = new(Gauge)
-		}
+		case TypeState:
+			v := new(State)
+			m.stateMap[name] = v
+			value.Set(reflect.ValueOf(v))
 
-		m.metricsMap[name] = metric
-		value.Set(reflect.ValueOf(metric))
+		case TypeCounter:
+			v := new(Counter)
+			m.counterMap[name] = v
+			value.Set(reflect.ValueOf(v))
+
+		case TypeGauge:
+			v := new(Gauge)
+			m.gaugeMap[name] = v
+			value.Set(reflect.ValueOf(v))
+		}
 	}
 }
 
@@ -246,35 +260,32 @@ func (m *Metrics) updateDiff() {
 }
 
 type MetricsData struct {
-	Prefix    string
-	Kind      string
-	DataTypes map[string]string
-	Data      map[string]int64
+	Prefix      string
+	Kind        string
+	GaugeData   map[string]int64
+	CounterData map[string]int64
+	StateData   map[string]string
 }
 
 func NewMetricsData(prefix string, kind string) *MetricsData {
 	d := new(MetricsData)
 	d.Prefix = prefix
 	d.Kind = kind
-	d.DataTypes = make(map[string]string)
-	d.Data = make(map[string]int64)
+	d.GaugeData = make(map[string]int64)
+	d.CounterData = make(map[string]int64)
+	d.StateData = make(map[string]string)
 	return d
 }
 
 func (d *MetricsData) Diff(last *MetricsData) *MetricsData {
 	diff := NewMetricsData(d.Prefix+"_diff", KindDelta)
-	diff.DataTypes = d.DataTypes
 
-	for k, v := range d.Data {
-		dt, _ := d.DataTypes[k]
-		if dt == TypeGauge {
-			continue
-		}
+	for k, v := range d.CounterData {
 
-		if v2, ok := last.Data[k]; ok {
-			diff.Data[k] = v - v2
+		if v2, ok := last.CounterData[k]; ok {
+			diff.CounterData[k] = v - v2
 		} else {
-			diff.Data[k] = v
+			diff.CounterData[k] = v
 		}
 
 	}
@@ -282,11 +293,11 @@ func (d *MetricsData) Diff(last *MetricsData) *MetricsData {
 }
 
 func (d *MetricsData) Sum(d2 *MetricsData) *MetricsData {
-	for k, v := range d2.Data {
-		if v0, ok := d.Data[k]; ok {
-			d.Data[k] = v0 + v
+	for k, v := range d2.CounterData {
+		if v0, ok := d.CounterData[k]; ok {
+			d.CounterData[k] = v0 + v
 		} else {
-			d.Data[k] = v
+			d.CounterData[k] = v
 		}
 	}
 	return d
@@ -294,8 +305,18 @@ func (d *MetricsData) Sum(d2 *MetricsData) *MetricsData {
 
 func (d *MetricsData) KeyValueFormat() []byte {
 	var b bytes.Buffer
-	for k, v := range d.Data {
+	for k, v := range d.CounterData {
 		line := fmt.Sprintf("%s_%s: %d\n", d.Prefix, k, v)
+		b.WriteString(line)
+	}
+
+	for k, v := range d.GaugeData {
+		line := fmt.Sprintf("%s_%s: %d\n", d.Prefix, k, v)
+		b.WriteString(line)
+	}
+
+	for k, v := range d.StateData {
+		line := fmt.Sprintf("%s_%s: %s\n", d.Prefix, k, v)
 		b.WriteString(line)
 	}
 	return b.Bytes()
@@ -303,9 +324,15 @@ func (d *MetricsData) KeyValueFormat() []byte {
 
 func (d *MetricsData) PrometheusFormat() []byte {
 	var b bytes.Buffer
-	for k, v := range d.Data {
+	for k, v := range d.CounterData {
 		key := fmt.Sprintf("%s_%s", d.Prefix, k)
-		line := fmt.Sprintf("# TYPE %s %s\n%s %d\n", key, strings.ToLower(d.DataTypes[k]), key, v)
+		line := fmt.Sprintf("# TYPE %s %s\n%s %d\n", key, strings.ToLower(TypeCounter), key, v)
+		b.WriteString(line)
+	}
+
+	for k, v := range d.GaugeData {
+		key := fmt.Sprintf("%s_%s", d.Prefix, k)
+		line := fmt.Sprintf("# TYPE %s %s\n%s %d\n", key, strings.ToLower(TypeGauge), key, v)
 		b.WriteString(line)
 	}
 	return b.Bytes()
@@ -320,7 +347,7 @@ func (d *MetricsData) Format(params map[string][]string) ([]byte, error) {
 	switch format {
 	case "json":
 		return json.Marshal(d)
-	case "kv":
+	case "kv", "noah":
 		return d.KeyValueFormat(), nil
 	case "prometheus":
 		return d.PrometheusFormat(), nil
