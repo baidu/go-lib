@@ -12,28 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package web_monitor
+package reload_src_conf
 
 import (
+	"reflect"
+	"sort"
 	"testing"
 )
 
-func TestIsValidForReload(t *testing.T) {
-	if !isValidForReload("[::1]:8080") {
-		t.Error("err in valid for reload, [::1]:8080 should allow reload")
+func TestReloadSrcIPsLoad(t *testing.T) {
+	reloadSrcIPs, err := ReloadSrcIPsLoad("./testdata/reload_src_conf_1.data")
+	if err != nil {
+		t.Errorf("get err from ReloadSrcIPsLoad():%s", err.Error())
+		return
 	}
-	if !isValidForReload("127.0.0.1:8080") {
-		t.Error("err in valid for reload, 127.0.0.1:8080 should allow reload")
+
+	ips := []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"}
+	sort.Strings(reloadSrcIPs)
+
+	if !reflect.DeepEqual(reloadSrcIPs, ips) {
+		t.Errorf("ReloadSrcIPsLoad failed, should be:%v, but is:%v", ips, reloadSrcIPs)
 	}
 }
 
-func TestInitReloadACL(t *testing.T) {
-	err := InitReloadACL("reload_src_conf/testdata/reload_src_conf_1.data")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	if len(RELOAD_SRC_ALLOWED) != 5 {
-		t.Fatal("len(RELOAD_SRC_ALLOWED) != 5")
+func TestReloadSrcIPsLoad_InvalidIP(t *testing.T) {
+	_, err := ReloadSrcIPsLoad("./testdata/reload_src_conf_2.data")
+	if err == nil {
+		t.Fatalf("Expect an error")
 	}
 }
