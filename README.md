@@ -8,7 +8,7 @@
 - [English version](https://godoc.org/github.com/baidu/go-lib)
 
 ## Contributing
-- Please create an issue in [issue list](http://github.com/baidu/bfe/issues).
+- Please create an issue in [issue list](http://github.com/baidu/go-lib/issues).
 - Following the golang coding standards.
 
 ## License
