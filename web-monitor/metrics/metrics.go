@@ -18,7 +18,7 @@ Usage:
 
 	// define counter struct type
 	type ServerState {
-		ReqServed *Counter // field type must be *Counter or *Gauge
+		ReqServed *Counter // field type must be *Counter or *Gauge or *State
 		ConServed *Counter
 		ConActive *Gauge
 	}
