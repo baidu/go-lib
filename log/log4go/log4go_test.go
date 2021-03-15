@@ -38,7 +38,7 @@ func newLogRecord(lvl LevelType, src string, msg string, data []byte) *LogRecord
 		Source:  src,
 		Created: now,
 		Message: msg,
-		Binary: data,
+		Binary:  data,
 	}
 }
 
@@ -159,8 +159,8 @@ func TestTimeFileLogWriter(t *testing.T) {
 	}(LogBufferLength)
 	LogBufferLength = 0
 
-	w := NewTimeFileLogWriter(testLogFile, "MIDNIGHT", 7)
-    
+	w := NewTimeFileLogWriter(testLogFile, "MIDNIGHT", 7, false)
+
 	if w == nil {
 		t.Fatalf("Invalid return: w should not be nil")
 	}
@@ -183,14 +183,14 @@ func TestTimeFileLogWriter_Binary(t *testing.T) {
 	}(LogBufferLength)
 	LogBufferLength = 0
 
-	w := NewTimeFileLogWriter(testLogFile, "MIDNIGHT", 7)
-    
+	w := NewTimeFileLogWriter(testLogFile, "MIDNIGHT", 7, false)
+
 	if w == nil {
 		t.Fatalf("Invalid return: w should not be nil")
 	}
 	defer os.Remove(testLogFile)
 
-    data := []byte{0x01,0x02,0xAA,0x55}
+	data := []byte{0x01, 0x02, 0xAA, 0x55}
 	w.LogWrite(newLogRecord(CRITICAL, "source", "message", data))
 	w.Close()
 	runtime.Gosched()
