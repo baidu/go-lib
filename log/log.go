@@ -38,9 +38,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-)
 
-import "github.com/baidu/go-lib/log/log4go"
+	"github.com/baidu/go-lib/log/log4go"
+)
 
 // Logger is global logger
 var Logger log4go.Logger
@@ -150,47 +150,7 @@ func Init(progName string, levelStr string, logDir string,
 //       backupCount files are kept - the oldest ones are deleted.
 func Create(progName string, levelStr string, logDir string,
 	hasStdOut bool, when string, backupCount int) (log4go.Logger, error) {
-	/* check when   */
-	if !log4go.WhenIsValid(when) {
-		return nil, fmt.Errorf("invalid value of when: %s", when)
-	}
-
-	/* check, and create dir if nonexist    */
-	if err := logDirCreate(logDir); err != nil {
-		log4go.Error("Init(), in logDirCreate(%s)", logDir)
-		return nil, err
-	}
-
-	/* convert level from string to log4go level    */
-	level := stringToLevel(levelStr)
-
-	/* create logger    */
-	logger := make(log4go.Logger)
-
-	/* create writer for stdout */
-	if hasStdOut {
-		logger.AddFilter("stdout", level, log4go.NewConsoleLogWriter())
-	}
-
-	/* create file writer for all log   */
-	fileName := filenameGen(progName, logDir, false)
-	logWriter := log4go.NewTimeFileLogWriter(fileName, when, backupCount)
-	if logWriter == nil {
-		return nil, fmt.Errorf("error in log4go.NewTimeFileLogWriter(%s)", fileName)
-	}
-	logWriter.SetFormat(log4go.LogFormat)
-	logger.AddFilter("log", level, logWriter)
-
-	/* create file writer for warning and fatal log */
-	fileNameWf := filenameGen(progName, logDir, true)
-	logWriter = log4go.NewTimeFileLogWriter(fileNameWf, when, backupCount)
-	if logWriter == nil {
-		return nil, fmt.Errorf("error in log4go.NewTimeFileLogWriter(%s)", fileNameWf)
-	}
-	logWriter.SetFormat(log4go.LogFormat)
-	logger.AddFilter("log_wf", log4go.WARNING, logWriter)
-
-	return logger, nil
+	return create(progName, levelStr, logDir, hasStdOut, when, backupCount, false)
 }
 
 // InitWithLogSvr initializes log lib with remote log server
@@ -243,4 +203,83 @@ func InitWithLogSvr(progName string, levelStr string, loggerName string,
 
 	initialized = true
 	return nil
+}
+
+// Init initializes log lib
+//
+// PARAMS:
+//   - progName: program name. Name of log file will be progName.log
+//   - levelStr: "DEBUG", "TRACE", "INFO", "WARNING", "ERROR", "CRITICAL"
+//   - logDir: directory for log. It will be created if noexist
+//   - hasStdOut: whether to have stdout output
+//   - when:
+//       "M", minute
+//       "H", hour
+//       "D", day
+//       "MIDNIGHT", roll over at midnight
+//   - backupCount: If backupCount is > 0, when rollover is done, no more than
+//       backupCount files are kept - the oldest ones are deleted.
+//   - enableCompress: whether to compress the roll over log file
+func InitWithCompress(progName string, levelStr string, logDir string,
+	hasStdOut bool, when string, backupCount int, enableCompress bool) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if initialized {
+		return errors.New("Initialized Already")
+	}
+
+	var err error
+	Logger, err = create(progName, levelStr, logDir, hasStdOut, when, backupCount, enableCompress)
+	if err != nil {
+		return err
+	}
+
+	initialized = true
+	return nil
+}
+
+func create(progName string, levelStr string, logDir string,
+	hasStdOut bool, when string, backupCount int, enableCompress bool) (log4go.Logger, error) {
+	/* check when   */
+	if !log4go.WhenIsValid(when) {
+		return nil, fmt.Errorf("invalid value of when: %s", when)
+	}
+
+	/* check, and create dir if nonexist    */
+	if err := logDirCreate(logDir); err != nil {
+		log4go.Error("Init(), in logDirCreate(%s)", logDir)
+		return nil, err
+	}
+
+	/* convert level from string to log4go level    */
+	level := stringToLevel(levelStr)
+
+	/* create logger    */
+	logger := make(log4go.Logger)
+
+	/* create writer for stdout */
+	if hasStdOut {
+		logger.AddFilter("stdout", level, log4go.NewConsoleLogWriter())
+	}
+
+	/* create file writer for all log   */
+	fileName := filenameGen(progName, logDir, false)
+	logWriter := log4go.NewTimeFileLogWriter(fileName, when, backupCount, enableCompress)
+	if logWriter == nil {
+		return nil, fmt.Errorf("error in log4go.NewTimeFileLogWriter(%s)", fileName)
+	}
+	logWriter.SetFormat(log4go.LogFormat)
+	logger.AddFilter("log", level, logWriter)
+
+	/* create file writer for warning and fatal log */
+	fileNameWf := filenameGen(progName, logDir, true)
+	logWriter = log4go.NewTimeFileLogWriter(fileNameWf, when, backupCount, enableCompress)
+	if logWriter == nil {
+		return nil, fmt.Errorf("error in log4go.NewTimeFileLogWriter(%s)", fileNameWf)
+	}
+	logWriter.SetFormat(log4go.LogFormat)
+	logger.AddFilter("log_wf", log4go.WARNING, logWriter)
+
+	return logger, nil
 }
