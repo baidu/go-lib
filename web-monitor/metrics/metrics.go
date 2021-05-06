@@ -96,6 +96,59 @@ type Metrics struct {
 	metricsDiff *MetricsData // diff in last duration
 }
 
+// NewMetrics new metrics object, you can got one empty Metrics if you want dynamic get/create metrics by name
+func NewMetrics(prefix string, intervalS int) *Metrics {
+	m := &Metrics{}
+	m.Init(&struct{}{}, prefix, intervalS)
+
+	return m
+}
+
+// LoadCounter load counter by name, if not existed, new count will be created then return
+func (m *Metrics) LoadCounter(name string) *Counter {
+	key := m.convert(name)
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if val, ok := m.counterMap[key]; ok {
+		return val
+	}
+
+	val :=  new(Counter)
+	m.counterMap[key] = val
+	return val
+}
+
+// LoadGauge load Gauge by name, if not existed, new count will be created then return
+func (m *Metrics) LoadGauge(name string) *Gauge {
+	key := m.convert(name)
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if val, ok := m.gaugeMap[key]; ok {
+		return val
+	}
+
+	val :=  new(Gauge)
+	m.gaugeMap[key] = val
+	return val
+}
+
+// LoadState load state by name, if not existed, new count will be created then return
+func (m *Metrics) LoadState(name string) *State {
+	key := m.convert(name)
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if val, ok := m.stateMap[key]; ok {
+		return val
+	}
+
+	val :=  new(State)
+	m.stateMap[key] = val
+	return val
+}
+
 // Init initializes metrics
 //
 // Params:

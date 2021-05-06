@@ -15,8 +15,10 @@
 package metrics
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
+	"time"
 )
 
 import (
@@ -245,4 +247,61 @@ func BenchmarkStateGet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		s.GetAll()
 	}
+}
+
+func TestNewMetrics(t *testing.T) {
+	m := NewMetrics("test", 1)
+
+	tick200Ms := time.NewTicker(time.Millisecond * 200)
+	tick2S := time.NewTicker(time.Second * 2)
+
+	for {
+		select {
+		case <-tick200Ms.C:
+			count := len(m.GetAll().CounterData)
+			if count !=0 {
+				if count != 5 {
+					t.Errorf("CountData len want 0/5, got %v", count)
+				}else {
+					for i := 0; i < 5; i++ {
+						key := fmt.Sprintf("COUNT_%d", i)
+						if v := m.GetAll().CounterData[key]; v < 0 {
+							t.Errorf("CountData[%v] want > 0,  got %v", key, v)
+						}
+					}
+				}
+
+			}
+
+			count = len(m.GetAll().GaugeData)
+			if count !=0 && count != 5 {
+				t.Errorf("GaugeData len want 0/5, got %v", count)
+			}
+			count = len(m.GetAll().StateData)
+			if count !=0 && count != 5 {
+				t.Errorf("StateData len want 0/5, got %v", count)
+			}
+			// no more strict validate for XxxData[key]
+
+			// simulate concurrent
+			go func() {
+				for i := 0; i <= 100; i++ {
+					m.LoadCounter(fmt.Sprintf("COUNT_%d", i%5)).Inc(1)
+					m.LoadGauge(fmt.Sprintf("GAUGE_%d", i%5)).Inc(1)
+					m.LoadState(fmt.Sprintf("State_%d", i%5)).Set("State")
+				}
+
+				for i := 100; i > 0; i-- {
+					m.LoadCounter(fmt.Sprintf("COUNT_%d", i%5)).Inc(1)
+					m.LoadGauge(fmt.Sprintf("GAUGE_%d", i%5)).Inc(1)
+					m.LoadState(fmt.Sprintf("State_%d", i%5)).Set("State")
+				}
+			}()
+		case <-tick2S.C:
+			tick2S.Stop()
+			tick200Ms.Stop()
+			return
+		}
+	}
+
 }
