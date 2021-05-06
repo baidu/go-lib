@@ -114,7 +114,7 @@ func (m *Metrics) LoadCounter(name string) *Counter {
 		return val
 	}
 
-	val :=  new(Counter)
+	val := new(Counter)
 	m.counterMap[key] = val
 	return val
 }
@@ -129,7 +129,7 @@ func (m *Metrics) LoadGauge(name string) *Gauge {
 		return val
 	}
 
-	val :=  new(Gauge)
+	val := new(Gauge)
 	m.gaugeMap[key] = val
 	return val
 }
@@ -144,7 +144,7 @@ func (m *Metrics) LoadState(name string) *State {
 		return val
 	}
 
-	val :=  new(State)
+	val := new(State)
 	m.stateMap[key] = val
 	return val
 }

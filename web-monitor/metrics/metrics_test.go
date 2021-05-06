@@ -259,10 +259,10 @@ func TestNewMetrics(t *testing.T) {
 		select {
 		case <-tick200Ms.C:
 			count := len(m.GetAll().CounterData)
-			if count !=0 {
+			if count != 0 {
 				if count != 5 {
 					t.Errorf("CountData len want 0/5, got %v", count)
-				}else {
+				} else {
 					for i := 0; i < 5; i++ {
 						key := fmt.Sprintf("COUNT_%d", i)
 						if v := m.GetAll().CounterData[key]; v < 0 {
@@ -274,11 +274,11 @@ func TestNewMetrics(t *testing.T) {
 			}
 
 			count = len(m.GetAll().GaugeData)
-			if count !=0 && count != 5 {
+			if count != 0 && count != 5 {
 				t.Errorf("GaugeData len want 0/5, got %v", count)
 			}
 			count = len(m.GetAll().StateData)
-			if count !=0 && count != 5 {
+			if count != 0 && count != 5 {
 				t.Errorf("StateData len want 0/5, got %v", count)
 			}
 			// no more strict validate for XxxData[key]
