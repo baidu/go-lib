@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /*
-Usage:
+Usage 1: Define Metric Field at first
     import "github.com/baidu/go-lib/web-monitor/metrics"
 
 	// define counter struct type
@@ -33,6 +33,19 @@ Usage:
     s.ConServed.Inc(1)
     s.ReqServed.Inc(1)
     s.ConActive.Dec(1)
+
+	// get absoulute data for all metrics
+    stateData := m.GetAll()
+	// get diff data for all counters(gauge don't have diff data)
+    stateDiff := m.GetDiff()
+
+Usage 2: Dynamic LoadMetrics Object(if not exist, create it)
+    import "github.com/baidu/go-lib/web-monitor/metrics"
+	m := NewMetrics("test", 1)
+
+	m.LoadCounter("COUNT").Inc(1)
+	m.LoadGauge("Gauge").Inc(1)
+	m.LoadState("State").Set("State")
 
 	// get absoulute data for all metrics
     stateData := m.GetAll()
@@ -107,6 +120,14 @@ func NewMetrics(prefix string, intervalS int) *Metrics {
 // LoadCounter load counter by name, if not existed, new count will be created then return
 func (m *Metrics) LoadCounter(name string) *Counter {
 	key := m.convert(name)
+
+	m.lock.RLock()
+	if val, ok := m.counterMap[key]; ok {
+		m.lock.RUnlock()
+		return val
+	}
+	m.lock.RUnlock()
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -122,6 +143,14 @@ func (m *Metrics) LoadCounter(name string) *Counter {
 // LoadGauge load Gauge by name, if not existed, new count will be created then return
 func (m *Metrics) LoadGauge(name string) *Gauge {
 	key := m.convert(name)
+
+	m.lock.RLock()
+	if val, ok := m.gaugeMap[key]; ok {
+		m.lock.RUnlock()
+		return val
+	}
+	m.lock.RUnlock()
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -137,6 +166,14 @@ func (m *Metrics) LoadGauge(name string) *Gauge {
 // LoadState load state by name, if not existed, new count will be created then return
 func (m *Metrics) LoadState(name string) *State {
 	key := m.convert(name)
+
+	m.lock.RLock()
+	if val, ok := m.stateMap[key]; ok {
+		m.lock.RUnlock()
+		return val
+	}
+	m.lock.RUnlock()
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
 

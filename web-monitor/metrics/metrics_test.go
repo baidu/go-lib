@@ -258,31 +258,6 @@ func TestNewMetrics(t *testing.T) {
 	for {
 		select {
 		case <-tick200Ms.C:
-			count := len(m.GetAll().CounterData)
-			if count != 0 {
-				if count != 5 {
-					t.Errorf("CountData len want 0/5, got %v", count)
-				} else {
-					for i := 0; i < 5; i++ {
-						key := fmt.Sprintf("COUNT_%d", i)
-						if v := m.GetAll().CounterData[key]; v < 0 {
-							t.Errorf("CountData[%v] want > 0,  got %v", key, v)
-						}
-					}
-				}
-
-			}
-
-			count = len(m.GetAll().GaugeData)
-			if count != 0 && count != 5 {
-				t.Errorf("GaugeData len want 0/5, got %v", count)
-			}
-			count = len(m.GetAll().StateData)
-			if count != 0 && count != 5 {
-				t.Errorf("StateData len want 0/5, got %v", count)
-			}
-			// no more strict validate for XxxData[key]
-
 			// simulate concurrent
 			go func() {
 				for i := 0; i <= 100; i++ {
@@ -300,8 +275,29 @@ func TestNewMetrics(t *testing.T) {
 		case <-tick2S.C:
 			tick2S.Stop()
 			tick200Ms.Stop()
+
+			counters := m.GetAll().CounterData
+			if size := len(counters); size != 5 {
+				t.Errorf("CountData len want 5, got %v", size)
+			}
+			for k, v := range counters {
+				if v < 1 {
+					t.Errorf("CountData[%v] want > 0,  got %v", k, v)
+				}
+			}
 			return
 		}
 	}
 
+}
+
+func TestMetrics_LoadCounter(t *testing.T) {
+	m := NewMetrics("test", 1)
+	m.LoadCounter("1").Inc(1)
+	if len(m.counterMap) != 1 {
+		t.Errorf("want 1, got: %v", len(m.counterMap))
+	}
+	if v := m.counterMap["1"].Get(); v != 1 {
+		t.Errorf("want 1, got: %v", v)
+	}
 }
