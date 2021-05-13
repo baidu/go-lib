@@ -13,43 +13,34 @@
 // limitations under the License.
 
 /*
-Usage 1: Define Metric Field at first
+Usage:
     import "github.com/baidu/go-lib/web-monitor/metrics"
 
-	// define counter struct type
-	type ServerState {
-		ReqServed *Counter // field type must be *Counter or *Gauge or *State
-		ConServed *Counter
-		ConActive *Gauge
-	}
+    // define counter struct type
+    type ServerState {
+        ReqServed *Counter // field type must be *Counter or *Gauge or *State
+        ConServed *Counter
+        ConActive *Gauge
+    }
 
-	// create metrics
-	var m Metrics
+    // create metrics
+    var m Metrics
     var s ServerState
     m.Init(&s, "PROXY", 20)
 
-	// counter operations
-	s.ConActive.Inc(2)
+    // counter operations
+    s.ConActive.Inc(2)
     s.ConServed.Inc(1)
     s.ReqServed.Inc(1)
     s.ConActive.Dec(1)
 
-	// get absoulute data for all metrics
+    m.Counter("CounterName").Inc(1)
+    m.Gauge("GaugeName").Inc(1)
+    m.State("StateName").Set("StateValue")
+    
+    // get absoulute data for all metrics
     stateData := m.GetAll()
-	// get diff data for all counters(gauge don't have diff data)
-    stateDiff := m.GetDiff()
-
-Usage 2: Dynamic LoadMetrics Object(if not exist, create it)
-    import "github.com/baidu/go-lib/web-monitor/metrics"
-	m := NewMetrics("test", 1)
-
-	m.LoadCounter("COUNT").Inc(1)
-	m.LoadGauge("Gauge").Inc(1)
-	m.LoadState("State").Set("State")
-
-	// get absoulute data for all metrics
-    stateData := m.GetAll()
-	// get diff data for all counters(gauge don't have diff data)
+    // get diff data for all counters(gauge don't have diff data)
     stateDiff := m.GetDiff()
 */
 package metrics
@@ -109,83 +100,6 @@ type Metrics struct {
 	metricsDiff *MetricsData // diff in last duration
 }
 
-// NewMetrics new metrics object, you can got one empty Metrics if you want dynamic get/create metrics by name
-func NewMetrics(prefix string, intervalS int) *Metrics {
-	m := &Metrics{}
-	m.Init(&struct{}{}, prefix, intervalS)
-
-	return m
-}
-
-// LoadCounter load counter by name, if not existed, new count will be created then return
-func (m *Metrics) LoadCounter(name string) *Counter {
-	key := m.convert(name)
-
-	m.lock.RLock()
-	if val, ok := m.counterMap[key]; ok {
-		m.lock.RUnlock()
-		return val
-	}
-	m.lock.RUnlock()
-
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	if val, ok := m.counterMap[key]; ok {
-		return val
-	}
-
-	val := new(Counter)
-	m.counterMap[key] = val
-	return val
-}
-
-// LoadGauge load Gauge by name, if not existed, new count will be created then return
-func (m *Metrics) LoadGauge(name string) *Gauge {
-	key := m.convert(name)
-
-	m.lock.RLock()
-	if val, ok := m.gaugeMap[key]; ok {
-		m.lock.RUnlock()
-		return val
-	}
-	m.lock.RUnlock()
-
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	if val, ok := m.gaugeMap[key]; ok {
-		return val
-	}
-
-	val := new(Gauge)
-	m.gaugeMap[key] = val
-	return val
-}
-
-// LoadState load state by name, if not existed, new count will be created then return
-func (m *Metrics) LoadState(name string) *State {
-	key := m.convert(name)
-
-	m.lock.RLock()
-	if val, ok := m.stateMap[key]; ok {
-		m.lock.RUnlock()
-		return val
-	}
-	m.lock.RUnlock()
-
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	if val, ok := m.stateMap[key]; ok {
-		return val
-	}
-
-	val := new(State)
-	m.stateMap[key] = val
-	return val
-}
-
 // Init initializes metrics
 //
 // Params:
@@ -239,6 +153,74 @@ func validateMetrics(metrics interface{}) error {
 	}
 
 	return nil
+}
+
+// Init2 initializes empty Metrics
+func Init2(prefix string, intervalS int) *Metrics {
+	m := &Metrics{}
+	m.Init(&struct{}{}, prefix, intervalS)
+
+	return m
+}
+
+// Counter get or create a Counter by name
+func (m *Metrics) Counter(name string) *Counter {
+	key := m.convert(name)
+
+	m.lock.RLock()
+	if val, ok := m.counterMap[key]; ok {
+		m.lock.RUnlock()
+		return val
+	}
+	m.lock.RUnlock()
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	if val, ok := m.counterMap[key]; ok {
+		return val
+	}
+	m.counterMap[key] = new(Counter)
+	return val
+}
+
+// Gauge get or create a Gauge by name
+func (m *Metrics) Gauge(name string) *Gauge {
+	key := m.convert(name)
+
+	m.lock.RLock()
+	if val, ok := m.gaugeMap[key]; ok {
+		m.lock.RUnlock()
+		return val
+	}
+	m.lock.RUnlock()
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	if val, ok := m.gaugeMap[key]; ok {
+		return val
+	}
+	m.gaugeMap[key] = new(Gauge)
+	return val
+}
+
+// State get or create a State by name
+func (m *Metrics) State(name string) *State {
+	key := m.convert(name)
+
+	m.lock.RLock()
+	if val, ok := m.stateMap[key]; ok {
+		m.lock.RUnlock()
+		return val
+	}
+	m.lock.RUnlock()
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	if val, ok := m.stateMap[key]; ok {
+		return val
+	}
+	m.stateMap[key] = new(State)
+	return val
 }
 
 // GetAll gets absoulute values for all counters
