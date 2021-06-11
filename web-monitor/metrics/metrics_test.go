@@ -250,7 +250,7 @@ func BenchmarkStateGet(b *testing.B) {
 }
 
 func TestNewMetrics(t *testing.T) {
-	m := NewMetrics("test", 1)
+	m := NewEmptyMetrics("test", 1)
 
 	tick200Ms := time.NewTicker(time.Millisecond * 200)
 	tick2S := time.NewTicker(time.Second * 2)
@@ -261,15 +261,15 @@ func TestNewMetrics(t *testing.T) {
 			// simulate concurrent
 			go func() {
 				for i := 0; i <= 100; i++ {
-					m.LoadCounter(fmt.Sprintf("COUNT_%d", i%5)).Inc(1)
-					m.LoadGauge(fmt.Sprintf("GAUGE_%d", i%5)).Inc(1)
-					m.LoadState(fmt.Sprintf("State_%d", i%5)).Set("State")
+					m.Counter(fmt.Sprintf("COUNT_%d", i%5)).Inc(1)
+					m.Gauge(fmt.Sprintf("GAUGE_%d", i%5)).Inc(1)
+					m.State(fmt.Sprintf("State_%d", i%5)).Set("State")
 				}
 
 				for i := 100; i > 0; i-- {
-					m.LoadCounter(fmt.Sprintf("COUNT_%d", i%5)).Inc(1)
-					m.LoadGauge(fmt.Sprintf("GAUGE_%d", i%5)).Inc(1)
-					m.LoadState(fmt.Sprintf("State_%d", i%5)).Set("State")
+					m.Counter(fmt.Sprintf("COUNT_%d", i%5)).Inc(1)
+					m.Gauge(fmt.Sprintf("GAUGE_%d", i%5)).Inc(1)
+					m.State(fmt.Sprintf("State_%d", i%5)).Set("State")
 				}
 			}()
 		case <-tick2S.C:
@@ -291,9 +291,9 @@ func TestNewMetrics(t *testing.T) {
 
 }
 
-func TestMetrics_LoadCounter(t *testing.T) {
-	m := NewMetrics("test", 1)
-	m.LoadCounter("1").Inc(1)
+func TestMetrics_Counter(t *testing.T) {
+	m := NewEmptyMetrics("test", 1)
+	m.Counter("1").Inc(1)
 	if len(m.counterMap) != 1 {
 		t.Errorf("want 1, got: %v", len(m.counterMap))
 	}

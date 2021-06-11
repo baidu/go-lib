@@ -155,8 +155,8 @@ func validateMetrics(metrics interface{}) error {
 	return nil
 }
 
-// Init2 initializes empty Metrics
-func Init2(prefix string, intervalS int) *Metrics {
+// NewEmptyMetrics initializes empty Metrics
+func NewEmptyMetrics(prefix string, intervalS int) *Metrics {
 	m := &Metrics{}
 	m.Init(&struct{}{}, prefix, intervalS)
 
@@ -176,10 +176,13 @@ func (m *Metrics) Counter(name string) *Counter {
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
+
 	if val, ok := m.counterMap[key]; ok {
 		return val
 	}
-	m.counterMap[key] = new(Counter)
+
+	val := new(Counter)
+	m.counterMap[key] = val
 	return val
 }
 
@@ -196,10 +199,13 @@ func (m *Metrics) Gauge(name string) *Gauge {
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
+
 	if val, ok := m.gaugeMap[key]; ok {
 		return val
 	}
-	m.gaugeMap[key] = new(Gauge)
+
+	val := new(Gauge)
+	m.gaugeMap[key] = val
 	return val
 }
 
@@ -216,10 +222,13 @@ func (m *Metrics) State(name string) *State {
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
+
 	if val, ok := m.stateMap[key]; ok {
 		return val
 	}
-	m.stateMap[key] = new(State)
+
+	val := new(State)
+	m.stateMap[key] = val
 	return val
 }
 
