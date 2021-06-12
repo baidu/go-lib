@@ -15,8 +15,10 @@
 package metrics
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
+	"time"
 )
 
 import (
@@ -244,5 +246,58 @@ func BenchmarkStateGet(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.GetAll()
+	}
+}
+
+func TestNewMetrics(t *testing.T) {
+	m := NewEmptyMetrics("test", 1)
+
+	tick200Ms := time.NewTicker(time.Millisecond * 200)
+	tick2S := time.NewTicker(time.Second * 2)
+
+	for {
+		select {
+		case <-tick200Ms.C:
+			// simulate concurrent
+			go func() {
+				for i := 0; i <= 100; i++ {
+					m.Counter(fmt.Sprintf("COUNT_%d", i%5)).Inc(1)
+					m.Gauge(fmt.Sprintf("GAUGE_%d", i%5)).Inc(1)
+					m.State(fmt.Sprintf("State_%d", i%5)).Set("State")
+				}
+
+				for i := 100; i > 0; i-- {
+					m.Counter(fmt.Sprintf("COUNT_%d", i%5)).Inc(1)
+					m.Gauge(fmt.Sprintf("GAUGE_%d", i%5)).Inc(1)
+					m.State(fmt.Sprintf("State_%d", i%5)).Set("State")
+				}
+			}()
+		case <-tick2S.C:
+			tick2S.Stop()
+			tick200Ms.Stop()
+
+			counters := m.GetAll().CounterData
+			if size := len(counters); size != 5 {
+				t.Errorf("CountData len want 5, got %v", size)
+			}
+			for k, v := range counters {
+				if v < 1 {
+					t.Errorf("CountData[%v] want > 0,  got %v", k, v)
+				}
+			}
+			return
+		}
+	}
+
+}
+
+func TestMetrics_Counter(t *testing.T) {
+	m := NewEmptyMetrics("test", 1)
+	m.Counter("1").Inc(1)
+	if len(m.counterMap) != 1 {
+		t.Errorf("want 1, got: %v", len(m.counterMap))
+	}
+	if v := m.counterMap["1"].Get(); v != 1 {
+		t.Errorf("want 1, got: %v", v)
 	}
 }

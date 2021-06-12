@@ -16,27 +16,31 @@
 Usage:
     import "github.com/baidu/go-lib/web-monitor/metrics"
 
-	// define counter struct type
-	type ServerState {
-		ReqServed *Counter // field type must be *Counter or *Gauge or *State
-		ConServed *Counter
-		ConActive *Gauge
-	}
+    // define counter struct type
+    type ServerState {
+        ReqServed *Counter // field type must be *Counter or *Gauge or *State
+        ConServed *Counter
+        ConActive *Gauge
+    }
 
-	// create metrics
-	var m Metrics
+    // create metrics
+    var m Metrics
     var s ServerState
     m.Init(&s, "PROXY", 20)
 
-	// counter operations
-	s.ConActive.Inc(2)
+    // counter operations
+    s.ConActive.Inc(2)
     s.ConServed.Inc(1)
     s.ReqServed.Inc(1)
     s.ConActive.Dec(1)
 
-	// get absoulute data for all metrics
+    m.Counter("CounterName").Inc(1)
+    m.Gauge("GaugeName").Inc(1)
+    m.State("StateName").Set("StateValue")
+    
+    // get absoulute data for all metrics
     stateData := m.GetAll()
-	// get diff data for all counters(gauge don't have diff data)
+    // get diff data for all counters(gauge don't have diff data)
     stateDiff := m.GetDiff()
 */
 package metrics
@@ -149,6 +153,83 @@ func validateMetrics(metrics interface{}) error {
 	}
 
 	return nil
+}
+
+// NewEmptyMetrics initializes empty Metrics
+func NewEmptyMetrics(prefix string, intervalS int) *Metrics {
+	m := &Metrics{}
+	m.Init(&struct{}{}, prefix, intervalS)
+
+	return m
+}
+
+// Counter get or create a Counter by name
+func (m *Metrics) Counter(name string) *Counter {
+	key := m.convert(name)
+
+	m.lock.RLock()
+	if val, ok := m.counterMap[key]; ok {
+		m.lock.RUnlock()
+		return val
+	}
+	m.lock.RUnlock()
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if val, ok := m.counterMap[key]; ok {
+		return val
+	}
+
+	val := new(Counter)
+	m.counterMap[key] = val
+	return val
+}
+
+// Gauge get or create a Gauge by name
+func (m *Metrics) Gauge(name string) *Gauge {
+	key := m.convert(name)
+
+	m.lock.RLock()
+	if val, ok := m.gaugeMap[key]; ok {
+		m.lock.RUnlock()
+		return val
+	}
+	m.lock.RUnlock()
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if val, ok := m.gaugeMap[key]; ok {
+		return val
+	}
+
+	val := new(Gauge)
+	m.gaugeMap[key] = val
+	return val
+}
+
+// State get or create a State by name
+func (m *Metrics) State(name string) *State {
+	key := m.convert(name)
+
+	m.lock.RLock()
+	if val, ok := m.stateMap[key]; ok {
+		m.lock.RUnlock()
+		return val
+	}
+	m.lock.RUnlock()
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if val, ok := m.stateMap[key]; ok {
+		return val
+	}
+
+	val := new(State)
+	m.stateMap[key] = val
+	return val
 }
 
 // GetAll gets absoulute values for all counters
