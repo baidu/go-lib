@@ -328,6 +328,15 @@ func (w *TimeFileLogWriter) adjustRolloverAt() {
 	w.rolloverAt = newRolloverAt
 }
 
+// remove files, according to backupCount
+func (w *TimeFileLogWriter) deleteFiles(){
+	if w.backupCount > 0 {
+		for _, fileName := range w.getFilesToDelete() {
+			os.Remove(fileName)
+		}
+	}
+}
+
 // If this is called in a threaded context, it MUST be synchronized
 func (w *TimeFileLogWriter) intRotate() error {
 	// Close any log file that may be open
@@ -341,13 +350,9 @@ func (w *TimeFileLogWriter) intRotate() error {
 			return err
 		}
 	}
-
-	// remove files, according to backupCount
-	if w.backupCount > 0 {
-		for _, fileName := range w.getFilesToDelete() {
-			os.Remove(fileName)
-		}
-	}
+	
+	// asynchronously delete legacy files to avoid from blocking
+	go w.deleteFiles()
 
 	// Open the log file
 	fd, err := os.OpenFile(w.filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
