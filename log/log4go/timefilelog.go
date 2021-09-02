@@ -89,9 +89,11 @@ func WhenIsValid(when string) bool {
 // This is the FileLogWriter's output method
 func (w *TimeFileLogWriter) LogWrite(rec *LogRecord) {
 	if !LogWithBlocking {
-		if len(w.rec) >= LogBufferLength {
-			return
+		select {
+		case w.rec <- rec:
+		default:
 		}
+		return
 	}
 
 	w.rec <- rec
@@ -247,7 +249,7 @@ func NewTimeFileLogWriter(fname string, when string, backupCount int, enableComp
 			if w.shouldRollover() {
 				if err := w.intRotate(); err != nil {
 					fmt.Fprintf(os.Stderr, "NewTimeFileLogWriter(%q): %s\n", w.filename, err)
-					return
+					continue
 				}
 			}
 
@@ -260,7 +262,6 @@ func NewTimeFileLogWriter(fname string, when string, backupCount int, enableComp
 			}
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "NewTimeFileLogWriter(%q): %s\n", w.filename, err)
-				return
 			}
 		}
 	}()
@@ -361,6 +362,7 @@ func (w *TimeFileLogWriter) intRotate() error {
 	// Close any log file that may be open
 	if w.file != nil {
 		w.file.Close()
+		w.file = nil
 	}
 
 	if w.shouldRollover() {
