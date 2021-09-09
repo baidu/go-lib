@@ -16,10 +16,13 @@
 package log4go
 
 import (
-	"fmt"
 	"bytes"
+	"context"
+	"fmt"
 	"io"
+	"math/rand"
 	"sync"
+	"time"
 )
 
 const (
@@ -59,6 +62,29 @@ func putBuf(bb *bytes.Buffer) {
     bufPool.Put(bb)
 }
 
+type logID string
+
+var logIDKey logID = "_logID"
+
+func NewLogContext(ctx context.Context, logID string) context.Context {
+	return context.WithValue(ctx, logIDKey, logID)
+}
+
+var ran = rand.NewSource(time.Now().Unix())
+
+var RandomLogID = func() string {
+	return fmt.Sprintf("%d_%d", time.Now().UnixNano(), ran.Int63()%1000)
+}
+
+func GetLogID(ctx context.Context) string {
+	val := ctx.Value(logIDKey)
+	if val == nil {
+		return ""
+	}
+
+	return val.(string)
+}
+
 // Known format codes:
 // %T - Time (15:04:05 MST)
 // %t - Time (15:04)
@@ -68,6 +94,7 @@ func putBuf(bb *bytes.Buffer) {
 // %P - Pid of process
 // %S - Source
 // %M - Message
+// %I - LogID
 // Ignores unknown formats
 // Recommended: "[%D %T] [%L] (%S) %M"
 func FormatLogRecord(format string, rec *LogRecord) string {
@@ -126,6 +153,8 @@ func FormatLogRecord(format string, rec *LogRecord) string {
 				out.WriteString(rec.Source)
 			case 'M':
 				out.WriteString(rec.Message)
+			case 'I':
+				out.WriteString(GetLogID(rec.Ctx))
 			}
 			if len(piece) > 1 {
 				out.Write(piece[1:])
