@@ -60,6 +60,7 @@
 package log4go
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -129,6 +130,7 @@ var (
 
 // A LogRecord contains all of the pertinent information for each message
 type LogRecord struct {
+	Ctx     context.Context
 	Level   LevelType // The log LevelType
 	Created time.Time // The time at which the log message was created (nanoseconds)
 	Source  string    // The message source
@@ -250,7 +252,7 @@ func (log Logger) AddFilter(name string, lvl LevelType, writer LogWriter) Logger
 
 /******* Logging *******/
 // Send a formatted log message internally
-func (log Logger) intLogf(lvl LevelType, format string, args ...interface{}) {
+func (log Logger) intLogf(ctx context.Context, lvl LevelType, format string, args ...interface{}) {
 	skip := true
 
 	// Determine if any logging will be done
@@ -278,6 +280,7 @@ func (log Logger) intLogf(lvl LevelType, format string, args ...interface{}) {
 
 	// Make the log record
 	rec := &LogRecord{
+		Ctx:     ctx,
 		Level:   lvl,
 		Created: time.Now(),
 		Source:  src,
@@ -295,7 +298,7 @@ func (log Logger) intLogf(lvl LevelType, format string, args ...interface{}) {
 }
 
 // Send a binary log message internally
-func (log Logger) intLogb(lvl LevelType, data []byte) {
+func (log Logger) intLogb(ctx context.Context, lvl LevelType, data []byte) {
 	skip := true
 
 	// Determine if any logging will be done
@@ -325,6 +328,7 @@ func (log Logger) intLogb(lvl LevelType, data []byte) {
 
 	// Make the log record
 	rec := &LogRecord{
+		Ctx:     ctx,
 		Level:   lvl,
 		Created: time.Now(),
 		Source:  src,
@@ -342,7 +346,7 @@ func (log Logger) intLogb(lvl LevelType, data []byte) {
 }
 
 // Send a closure log message internally
-func (log Logger) intLogc(lvl LevelType, closure func() string) {
+func (log Logger) intLogc(ctx context.Context, lvl LevelType, closure func() string) {
 	skip := true
 
 	// Determine if any logging will be done
@@ -365,6 +369,7 @@ func (log Logger) intLogc(lvl LevelType, closure func() string) {
 
 	// Make the log record
 	rec := &LogRecord{
+		Ctx:     ctx,
 		Level:   lvl,
 		Created: time.Now(),
 		Source:  src,
@@ -383,47 +388,19 @@ func (log Logger) intLogc(lvl LevelType, closure func() string) {
 
 // Send a log message with manual level, source, and message.
 func (log Logger) Log(lvl LevelType, source, message string) {
-	skip := true
-
-	// Determine if any logging will be done
-	for _, filt := range log {
-		if lvl >= filt.Level {
-			skip = false
-			break
-		}
-	}
-	if skip {
-		return
-	}
-
-	// Make the log record
-	rec := &LogRecord{
-		Level:   lvl,
-		Created: time.Now(),
-		Source:  source,
-		Message: message,
-		Binary:  nil,
-	}
-
-	// Dispatch the logs
-	for _, filt := range log {
-		if lvl < filt.Level {
-			continue
-		}
-		filt.LogWrite(rec)
-	}
+	log.LogWithContext(context.TODO(), lvl, source, message)
 }
 
 // Logf logs a formatted log message at the given log level, using the caller as
 // its source.
 func (log Logger) Logf(lvl LevelType, format string, args ...interface{}) {
-	log.intLogf(lvl, format, args...)
+	log.intLogf(context.TODO(), lvl, format, args...)
 }
 
 // Logc logs a string returned by the closure at the given log level, using the caller as
 // its source.  If no log message would be written, the closure is never called.
 func (log Logger) Logc(lvl LevelType, closure func() string) {
-	log.intLogc(lvl, closure)
+	log.intLogc(context.TODO(), lvl, closure)
 }
 
 // Finest logs a message at the finest log level.
@@ -435,13 +412,13 @@ func (log Logger) Finest(arg0 interface{}, args ...interface{}) {
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		log.intLogf(lvl, first, args...)
+		log.intLogf(context.TODO(), lvl, first, args...)
 	case func() string:
 		// Log the closure (no other arguments used)
-		log.intLogc(lvl, first)
+		log.intLogc(context.TODO(), lvl, first)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		log.intLogf(lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
+		log.intLogf(context.TODO(), lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
 	}
 }
 
@@ -454,13 +431,13 @@ func (log Logger) Fine(arg0 interface{}, args ...interface{}) {
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		log.intLogf(lvl, first, args...)
+		log.intLogf(context.TODO(), lvl, first, args...)
 	case func() string:
 		// Log the closure (no other arguments used)
-		log.intLogc(lvl, first)
+		log.intLogc(context.TODO(), lvl, first)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		log.intLogf(lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
+		log.intLogf(context.TODO(), lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
 	}
 }
 
@@ -483,13 +460,13 @@ func (log Logger) Debug(arg0 interface{}, args ...interface{}) {
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		log.intLogf(lvl, first, args...)
+		log.intLogf(context.TODO(), lvl, first, args...)
 	case func() string:
 		// Log the closure (no other arguments used)
-		log.intLogc(lvl, first)
+		log.intLogc(context.TODO(), lvl, first)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		log.intLogf(lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
+		log.intLogf(context.TODO(), lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
 	}
 }
 
@@ -502,13 +479,13 @@ func (log Logger) Trace(arg0 interface{}, args ...interface{}) {
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		log.intLogf(lvl, first, args...)
+		log.intLogf(context.TODO(), lvl, first, args...)
 	case func() string:
 		// Log the closure (no other arguments used)
-		log.intLogc(lvl, first)
+		log.intLogc(context.TODO(), lvl, first)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		log.intLogf(lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
+		log.intLogf(context.TODO(), lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
 	}
 }
 
@@ -521,16 +498,16 @@ func (log Logger) Info(arg0 interface{}, args ...interface{}) {
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		log.intLogf(lvl, first, args...)
+		log.intLogf(context.TODO(), lvl, first, args...)
 	case func() string:
 		// Log the closure (no other arguments used)
-		log.intLogc(lvl, first)
+		log.intLogc(context.TODO(), lvl, first)
 	case []byte:
 		// Log the binary log message
-		log.intLogb(lvl, first)
+		log.intLogb(context.TODO(), lvl, first)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		log.intLogf(lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
+		log.intLogf(context.TODO(), lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
 	}
 }
 
@@ -555,7 +532,7 @@ func (log Logger) Warn(arg0 interface{}, args ...interface{}) error {
 		// Build a format string so that it will be similar to Sprint
 		msg = fmt.Sprintf(fmt.Sprint(first)+strings.Repeat(" %v", len(args)), args...)
 	}
-	log.intLogf(lvl, msg)
+	log.intLogf(context.TODO(), lvl, msg)
 	return errors.New(msg)
 }
 
@@ -578,7 +555,7 @@ func (log Logger) Error(arg0 interface{}, args ...interface{}) error {
 		// Build a format string so that it will be similar to Sprint
 		msg = fmt.Sprintf(fmt.Sprint(first)+strings.Repeat(" %v", len(args)), args...)
 	}
-	log.intLogf(lvl, msg)
+	log.intLogf(context.TODO(), lvl, msg)
 	return errors.New(msg)
 }
 
@@ -601,7 +578,7 @@ func (log Logger) Critical(arg0 interface{}, args ...interface{}) error {
 		// Build a format string so that it will be similar to Sprint
 		msg = fmt.Sprintf(fmt.Sprint(first)+strings.Repeat(" %v", len(args)), args...)
 	}
-	log.intLogf(lvl, msg)
+	log.intLogf(context.TODO(), lvl, msg)
 	return errors.New(msg)
 }
 

@@ -24,136 +24,113 @@ import (
 	"strings"
 )
 
-var (
-	Global Logger
-)
-
-func init() {
-	Global = NewDefaultLogger(DEBUG)
-}
-
-// Wrapper for (*Logger).LoadConfiguration
-func LoadConfiguration(filename string) {
-	Global.LoadConfiguration(filename)
-}
-
-// Wrapper for (*Logger).AddFilter
-func AddFilter(name string, lvl LevelType, writer LogWriter) {
-	Global.AddFilter(name, lvl, writer)
-}
-
-// Wrapper for (*Logger).Close (closes and removes all logwriters)
-func Close() {
-	Global.Close()
-}
-
-func Crash(args ...interface{}) {
+func CrashWithContext(ctx context.Context, args ...interface{}) {
 	if len(args) > 0 {
-		Global.intLogf(context.TODO(), CRITICAL, strings.Repeat(" %v", len(args))[1:], args...)
+		Global.intLogf(ctx, CRITICAL, strings.Repeat(" %v", len(args))[1:], args...)
 	}
 	panic(args)
 }
 
 // Logs the given message and crashes the program
-func Crashf(format string, args ...interface{}) {
-	Global.intLogf(context.TODO(), CRITICAL, format, args...)
+func CrashfWithContext(ctx context.Context, format string, args ...interface{}) {
+	Global.intLogf(ctx, CRITICAL, format, args...)
 	Global.Close() // so that hopefully the messages get logged
 	panic(fmt.Sprintf(format, args...))
 }
 
 // Compatibility with `log`
-func Exit(args ...interface{}) {
+func ExitWithContext(ctx context.Context, args ...interface{}) {
 	if len(args) > 0 {
-		Global.intLogf(context.TODO(), ERROR, strings.Repeat(" %v", len(args))[1:], args...)
+		Global.intLogf(ctx, ERROR, strings.Repeat(" %v", len(args))[1:], args...)
 	}
 	Global.Close() // so that hopefully the messages get logged
 	os.Exit(0)
 }
 
 // Compatibility with `log`
-func Exitf(format string, args ...interface{}) {
-	Global.intLogf(context.TODO(), ERROR, format, args...)
+func ExitfWithContext(ctx context.Context, format string, args ...interface{}) {
+	Global.intLogf(ctx, ERROR, format, args...)
 	Global.Close() // so that hopefully the messages get logged
 	os.Exit(0)
 }
 
 // Compatibility with `log`
-func Stderr(args ...interface{}) {
+func StderrWithContext(ctx context.Context, args ...interface{}) {
 	if len(args) > 0 {
-		Global.intLogf(context.TODO(), ERROR, strings.Repeat(" %v", len(args))[1:], args...)
+		Global.intLogf(ctx, ERROR, strings.Repeat(" %v", len(args))[1:], args...)
 	}
 }
 
 // Compatibility with `log`
-func Stderrf(format string, args ...interface{}) {
-	Global.intLogf(context.TODO(), ERROR, format, args...)
+func StderrfWithContext(ctx context.Context, format string, args ...interface{}) {
+	Global.intLogf(ctx, ERROR, format, args...)
 }
 
 // Compatibility with `log`
-func Stdout(args ...interface{}) {
+func StdoutWithContext(ctx context.Context, args ...interface{}) {
 	if len(args) > 0 {
-		Global.intLogf(context.TODO(), INFO, strings.Repeat(" %v", len(args))[1:], args...)
+		Global.intLogf(ctx, INFO, strings.Repeat(" %v", len(args))[1:], args...)
 	}
 }
 
 // Compatibility with `log`
-func Stdoutf(format string, args ...interface{}) {
-	Global.intLogf(context.TODO(), INFO, format, args...)
+func StdoutfWithContext(ctx context.Context, format string, args ...interface{}) {
+	Global.intLogf(ctx, INFO, format, args...)
 }
 
 // Send a log message manually
 // Wrapper for (*Logger).Log
-func Log(lvl LevelType, source, message string) {
+func LogWithContext(ctx context.Context, lvl LevelType, source, message string) {
 	Global.Log(lvl, source, message)
 }
 
 // Send a formatted log message easily
 // Wrapper for (*Logger).Logf
-func Logf(lvl LevelType, format string, args ...interface{}) {
-	Global.intLogf(context.TODO(), lvl, format, args...)
+func LogfWithContext(ctx context.Context, lvl LevelType, format string, args ...interface{}) {
+	Global.intLogf(ctx, lvl, format, args...)
 }
 
 // Send a closure log message
 // Wrapper for (*Logger).Logc
-func Logc(lvl LevelType, closure func() string) {
-	Global.intLogc(context.TODO(), lvl, closure)
+func LogcWithContext(ctx context.Context, lvl LevelType, closure func() string) {
+	Global.intLogc(ctx, lvl, closure)
 }
 
 // Utility for finest log messages (see Debug() for parameter explanation)
 // Wrapper for (*Logger).Finest
-func Finest(arg0 interface{}, args ...interface{}) {
+func FinestWithContext(ctx context.Context, arg0 interface{}, args ...interface{}) {
 	const (
 		lvl = FINEST
 	)
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		Global.intLogf(context.TODO(), lvl, first, args...)
+		Global.intLogf(ctx, lvl, first, args...)
 	case func() string:
 		// Log the closure (no other arguments used)
-		Global.intLogc(context.TODO(), lvl, first)
+		Global.intLogc(ctx, lvl, first)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		Global.intLogf(context.TODO(), lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
+		Global.intLogf(ctx, lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
 	}
 }
 
 // Utility for fine log messages (see Debug() for parameter explanation)
 // Wrapper for (*Logger).Fine
-func Fine(arg0 interface{}, args ...interface{}) {
+func FineWithContext(ctx context.Context, arg0 interface{}, args ...interface{}) {
 	const (
 		lvl = FINE
 	)
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		Global.intLogf(context.TODO(), lvl, first, args...)
+		Global.intLogf(ctx, lvl, first, args...)
 	case func() string:
 		// Log the closure (no other arguments used)
-		Global.intLogc(context.TODO(), lvl, first)
+		Global.intLogc(ctx, lvl, first)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		Global.intLogf(context.TODO(), lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
+		Global.intLogf(ctx, lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
 	}
 }
 
@@ -162,81 +139,81 @@ func Fine(arg0 interface{}, args ...interface{}) {
 // When given a closure of type func()string, this logs the string returned by the closure iff it will be logged.  The closure runs at most one time.
 // When given anything else, the log message will be each of the arguments formatted with %v and separated by spaces (ala Sprint).
 // Wrapper for (*Logger).Debug
-func Debug(arg0 interface{}, args ...interface{}) {
+func DebugWithContext(ctx context.Context, arg0 interface{}, args ...interface{}) {
 	const (
 		lvl = DEBUG
 	)
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		Global.intLogf(context.TODO(), lvl, first, args...)
+		Global.intLogf(ctx, lvl, first, args...)
 	case func() string:
 		// Log the closure (no other arguments used)
-		Global.intLogc(context.TODO(), lvl, first)
+		Global.intLogc(ctx, lvl, first)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		Global.intLogf(context.TODO(), lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
+		Global.intLogf(ctx, lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
 	}
 }
 
 // Utility for trace log messages (see Debug() for parameter explanation)
 // Wrapper for (*Logger).Trace
-func Trace(arg0 interface{}, args ...interface{}) {
+func TraceWithContext(ctx context.Context, arg0 interface{}, args ...interface{}) {
 	const (
 		lvl = TRACE
 	)
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		Global.intLogf(context.TODO(), lvl, first, args...)
+		Global.intLogf(ctx, lvl, first, args...)
 	case func() string:
 		// Log the closure (no other arguments used)
-		Global.intLogc(context.TODO(), lvl, first)
+		Global.intLogc(ctx, lvl, first)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		Global.intLogf(context.TODO(), lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
+		Global.intLogf(ctx, lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
 	}
 }
 
 // Utility for info log messages (see Debug() for parameter explanation)
 // Wrapper for (*Logger).Info
-func Info(arg0 interface{}, args ...interface{}) {
+func InfoWithContext(ctx context.Context, arg0 interface{}, args ...interface{}) {
 	const (
 		lvl = INFO
 	)
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		Global.intLogf(context.TODO(), lvl, first, args...)
+		Global.intLogf(ctx, lvl, first, args...)
 	case func() string:
 		// Log the closure (no other arguments used)
-		Global.intLogc(context.TODO(), lvl, first)
+		Global.intLogc(ctx, lvl, first)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		Global.intLogf(context.TODO(), lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
+		Global.intLogf(ctx, lvl, fmt.Sprint(arg0)+strings.Repeat(" %v", len(args)), args...)
 	}
 }
 
 // Utility for warn log messages (returns an error for easy function returns) (see Debug() for parameter explanation)
 // These functions will execute a closure exactly once, to build the error message for the return
 // Wrapper for (*Logger).Warn
-func Warn(arg0 interface{}, args ...interface{}) error {
+func WarnWithContext(ctx context.Context, arg0 interface{}, args ...interface{}) error {
 	const (
 		lvl = WARNING
 	)
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		Global.intLogf(context.TODO(), lvl, first, args...)
+		Global.intLogf(ctx, lvl, first, args...)
 		return errors.New(fmt.Sprintf(first, args...))
 	case func() string:
 		// Log the closure (no other arguments used)
 		str := first()
-		Global.intLogf(context.TODO(), lvl, "%s", str)
+		Global.intLogf(ctx, lvl, "%s", str)
 		return errors.New(str)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		Global.intLogf(context.TODO(), lvl, fmt.Sprint(first)+strings.Repeat(" %v", len(args)), args...)
+		Global.intLogf(ctx, lvl, fmt.Sprint(first)+strings.Repeat(" %v", len(args)), args...)
 		return errors.New(fmt.Sprint(first) + fmt.Sprintf(strings.Repeat(" %v", len(args)), args...))
 	}
 	return nil
@@ -245,23 +222,23 @@ func Warn(arg0 interface{}, args ...interface{}) error {
 // Utility for error log messages (returns an error for easy function returns) (see Debug() for parameter explanation)
 // These functions will execute a closure exactly once, to build the error message for the return
 // Wrapper for (*Logger).Error
-func Error(arg0 interface{}, args ...interface{}) error {
+func ErrorWithContext(ctx context.Context, arg0 interface{}, args ...interface{}) error {
 	const (
 		lvl = ERROR
 	)
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		Global.intLogf(context.TODO(), lvl, first, args...)
+		Global.intLogf(ctx, lvl, first, args...)
 		return errors.New(fmt.Sprintf(first, args...))
 	case func() string:
 		// Log the closure (no other arguments used)
 		str := first()
-		Global.intLogf(context.TODO(), lvl, "%s", str)
+		Global.intLogf(ctx, lvl, "%s", str)
 		return errors.New(str)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		Global.intLogf(context.TODO(), lvl, fmt.Sprint(first)+strings.Repeat(" %v", len(args)), args...)
+		Global.intLogf(ctx, lvl, fmt.Sprint(first)+strings.Repeat(" %v", len(args)), args...)
 		return errors.New(fmt.Sprint(first) + fmt.Sprintf(strings.Repeat(" %v", len(args)), args...))
 	}
 	return nil
@@ -270,23 +247,23 @@ func Error(arg0 interface{}, args ...interface{}) error {
 // Utility for critical log messages (returns an error for easy function returns) (see Debug() for parameter explanation)
 // These functions will execute a closure exactly once, to build the error message for the return
 // Wrapper for (*Logger).Critical
-func Critical(arg0 interface{}, args ...interface{}) error {
+func CriticalWithContext(ctx context.Context, arg0 interface{}, args ...interface{}) error {
 	const (
 		lvl = CRITICAL
 	)
 	switch first := arg0.(type) {
 	case string:
 		// Use the string as a format string
-		Global.intLogf(context.TODO(), lvl, first, args...)
+		Global.intLogf(ctx, lvl, first, args...)
 		return errors.New(fmt.Sprintf(first, args...))
 	case func() string:
 		// Log the closure (no other arguments used)
 		str := first()
-		Global.intLogf(context.TODO(), lvl, "%s", str)
+		Global.intLogf(ctx, lvl, "%s", str)
 		return errors.New(str)
 	default:
 		// Build a format string so that it will be similar to Sprint
-		Global.intLogf(context.TODO(), lvl, fmt.Sprint(first)+strings.Repeat(" %v", len(args)), args...)
+		Global.intLogf(ctx, lvl, fmt.Sprint(first)+strings.Repeat(" %v", len(args)), args...)
 		return errors.New(fmt.Sprint(first) + fmt.Sprintf(strings.Repeat(" %v", len(args)), args...))
 	}
 	return nil
