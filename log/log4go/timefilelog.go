@@ -89,9 +89,11 @@ func WhenIsValid(when string) bool {
 // This is the FileLogWriter's output method
 func (w *TimeFileLogWriter) LogWrite(rec *LogRecord) {
 	if !LogWithBlocking {
-		if len(w.rec) >= LogBufferLength {
-			return
+		select {
+		case w.rec <- rec:
+		default:
 		}
+		return
 	}
 
 	w.rec <- rec
@@ -247,7 +249,7 @@ func NewTimeFileLogWriter(fname string, when string, backupCount int, enableComp
 			if w.shouldRollover() {
 				if err := w.intRotate(); err != nil {
 					fmt.Fprintf(os.Stderr, "NewTimeFileLogWriter(%q): %s\n", w.filename, err)
-					return
+					continue
 				}
 			}
 
@@ -260,7 +262,6 @@ func NewTimeFileLogWriter(fname string, when string, backupCount int, enableComp
 			}
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "NewTimeFileLogWriter(%q): %s\n", w.filename, err)
-				return
 			}
 		}
 	}()
@@ -347,11 +348,21 @@ func (w *TimeFileLogWriter) adjustRolloverAt() {
 	w.rolloverAt = newRolloverAt
 }
 
+// remove files, according to backupCount
+func (w *TimeFileLogWriter) deleteFiles(){
+	if w.backupCount > 0 {
+		for _, fileName := range w.getFilesToDelete() {
+			os.Remove(fileName)
+		}
+	}
+}
+
 // If this is called in a threaded context, it MUST be synchronized
 func (w *TimeFileLogWriter) intRotate() error {
 	// Close any log file that may be open
 	if w.file != nil {
 		w.file.Close()
+		w.file = nil
 	}
 
 	if w.shouldRollover() {
@@ -360,13 +371,9 @@ func (w *TimeFileLogWriter) intRotate() error {
 			return err
 		}
 	}
-
-	// remove files, according to backupCount
-	if w.backupCount > 0 {
-		for _, fileName := range w.getFilesToDelete() {
-			os.Remove(fileName)
-		}
-	}
+	
+	// asynchronously delete legacy files to avoid from blocking
+	go w.deleteFiles()
 
 	// Open the log file
 	fd, err := os.OpenFile(w.filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
