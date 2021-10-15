@@ -112,3 +112,11 @@ func TestAddAndKeys(t *testing.T) {
 		t.Errorf("Should have same key length")
 	}
 }
+
+func TestUpdateValue(t *testing.T) {
+	cache := prepareCache()
+	rs := cache.UpdateValue("key6", "")
+	if !rs {
+		t.Errorf("'key6' is not in current cache")
+	}
+}

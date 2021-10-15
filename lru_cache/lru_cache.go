@@ -126,3 +126,14 @@ func (c *LRUCache) EnlargeCapacity(newCapacity int) error {
 	c.capacity = newCapacity
 	return nil
 }
+
+// UpdateValue just update the value of some cache
+func (c *LRUCache) UpdateValue (key interface{}, value interface{}) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if elem, ok := c.cache[key]; ok {
+		elem.Value.(*Pair).value = value
+		return true
+	}
+	return false
+}
