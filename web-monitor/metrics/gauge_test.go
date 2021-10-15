@@ -40,3 +40,11 @@ func TestGaugeDec(t *testing.T) {
 		t.Errorf("after dec 5, gauge expected -5, but is:%d", g.Get())
 	}
 }
+
+func TestGaugeSet(t *testing.T) {
+	var g Gauge
+	g.Set(3)
+	if g.Get() != 3 {
+		t.Errorf("after set 3, gauge expected 3, but is:%d", g.Get())
+	}
+}

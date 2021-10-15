@@ -46,6 +46,14 @@ func (c *Gauge) Get() int64 {
 	return atomic.LoadInt64((*int64)(c))
 }
 
+// Set sets gauge
+func (c *Gauge) Set(v int64) {
+	if c == nil {
+		return
+	}
+	atomic.StoreInt64((*int64)(c), v)
+}
+
 func (c *Gauge) Type() string {
 	return TypeGauge
 }

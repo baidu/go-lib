@@ -198,7 +198,7 @@ func (t *DelayRecent) FormatOutput(params map[string][]string) ([]byte, error) {
 	switch format {
 	case "json", "hier_json":
 		return t.GetJson()
-	case "kv":
+	case "kv", "noah":
 		return t.GetKV(), nil
 	case "kv_with_program_name":
 		return t.GetKVWithProgramName(), nil

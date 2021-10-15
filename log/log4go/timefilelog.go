@@ -26,7 +26,10 @@ It supports:
 package log4go
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -34,15 +37,16 @@ import (
 	"sort"
 	"strings"
 	"time"
-)
 
-import (
 	strftime "github.com/jehiah/go-strftime"
 )
 
 const (
 	MIDNIGHT = 24 * 60 * 60 /* number of seconds in a day */
 	NEXTHOUR = 60 * 60      /* number of seconds in a hour */
+
+	COMPRESS_SUFFIX       = ".tar.gz"   /* file suffix when enable compress for log */
+	REGEX_COMPRESS_SUFFIX = `\.tar\.gz` /* file regular suffix when enable compress for log */
 )
 
 // This log writer sends output to a file
@@ -62,6 +66,8 @@ type TimeFileLogWriter struct {
 	when        string // 'D', 'H', 'M', "MIDNIGHT", "NEXTHOUR"
 	backupCount int    // If backupCount is > 0, when rollover is done,
 	// no more than backupCount files are kept
+
+	enableCompress bool // compress the roll over log file
 
 	interval   int64
 	suffix     string         // suffix of log file
@@ -83,9 +89,11 @@ func WhenIsValid(when string) bool {
 // This is the FileLogWriter's output method
 func (w *TimeFileLogWriter) LogWrite(rec *LogRecord) {
 	if !LogWithBlocking {
-		if len(w.rec) >= LogBufferLength {
-			return
+		select {
+		case w.rec <- rec:
+		default:
 		}
+		return
 	}
 
 	w.rec <- rec
@@ -139,6 +147,12 @@ func (w *TimeFileLogWriter) prepare() {
 		w.suffix = "%Y-%m-%d"
 		regRule = `^\d{4}-\d{2}-\d{2}$`
 	}
+
+	// file name would be end with '.tar.gz' if the compress option is enable
+	if w.enableCompress {
+		regRule = regRule[:len(regRule)-1] + REGEX_COMPRESS_SUFFIX + regRule[len(regRule)-1:]
+	}
+
 	w.fileFilter = regexp.MustCompile(regRule)
 
 	fInfo, err := os.Stat(w.filename)
@@ -175,7 +189,8 @@ func (w *TimeFileLogWriter) shouldRollover() bool {
 //       "NEXTHOUR", roll over at sharp next hour
 //   - backupCount: If backupCount is > 0, when rollover is done, no more than
 //       backupCount files are kept - the oldest ones are deleted.
-func NewTimeFileLogWriter(fname string, when string, backupCount int) *TimeFileLogWriter {
+//   - enableCompress: whether to compress the roll over log file
+func NewTimeFileLogWriter(fname string, when string, backupCount int, enableCompress bool) *TimeFileLogWriter {
 	// check value of when is valid
 	if !WhenIsValid(when) {
 		fmt.Fprintf(os.Stderr, "NewTimeFileLogWriter(%q): invalid value of when:%s \n",
@@ -188,11 +203,12 @@ func NewTimeFileLogWriter(fname string, when string, backupCount int) *TimeFileL
 
 	// create TimeFileLogWriter
 	w := &TimeFileLogWriter{
-		rec:         make(chan *LogRecord, LogBufferLength),
-		filename:    fname,
-		format:      "[%D %T] [%L] (%S) %M",
-		when:        when,
-		backupCount: backupCount,
+		rec:            make(chan *LogRecord, LogBufferLength),
+		filename:       fname,
+		format:         "[%D %T] [%L] (%S) %M",
+		when:           when,
+		backupCount:    backupCount,
+		enableCompress: enableCompress,
 	}
 
 	// add w to collection of all writers
@@ -233,7 +249,7 @@ func NewTimeFileLogWriter(fname string, when string, backupCount int) *TimeFileL
 			if w.shouldRollover() {
 				if err := w.intRotate(); err != nil {
 					fmt.Fprintf(os.Stderr, "NewTimeFileLogWriter(%q): %s\n", w.filename, err)
-					return
+					continue
 				}
 			}
 
@@ -246,7 +262,6 @@ func NewTimeFileLogWriter(fname string, when string, backupCount int) *TimeFileL
 			}
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "NewTimeFileLogWriter(%q): %s\n", w.filename, err)
-				return
 			}
 		}
 	}()
@@ -313,6 +328,11 @@ func (w *TimeFileLogWriter) moveToBackup() error {
 		if err != nil {
 			return fmt.Errorf("Rotate: %s\n", err)
 		}
+
+		// compress the newfile if enable compressed
+		if w.enableCompress {
+			compressArchiveFile(fname)
+		}
 	}
 	return nil
 }
@@ -342,6 +362,7 @@ func (w *TimeFileLogWriter) intRotate() error {
 	// Close any log file that may be open
 	if w.file != nil {
 		w.file.Close()
+		w.file = nil
 	}
 
 	if w.shouldRollover() {
@@ -382,4 +403,59 @@ func (w *TimeFileLogWriter) Name() string {
 // QueueLen gets rec channel length
 func (w *TimeFileLogWriter) QueueLen() int {
 	return len(w.rec)
+}
+
+// compressArchiveFile will package and compress file by the name
+// use gzip as compressing algorithm
+func compressArchiveFile(fname string) error {
+	var errMsg = "Compress file: %s\n"
+
+	// generate target file which is compressed archived
+	fw, err := os.Create(fname + COMPRESS_SUFFIX)
+	if err != nil {
+		return fmt.Errorf(errMsg, err)
+	}
+	defer fw.Close()
+
+	// create Gzip writer
+	gw := gzip.NewWriter(fw)
+	defer gw.Close()
+	// create Tar writer
+	tw := tar.NewWriter(gw)
+	defer tw.Close()
+
+	// obtain file info header
+	fi, err := os.Stat(fname)
+	if err != nil {
+		return fmt.Errorf(errMsg, err)
+	}
+	hdr, err := tar.FileInfoHeader(fi, "")
+	if err != nil {
+		return fmt.Errorf(errMsg, err)
+	}
+
+	// write archive file header
+	err = tw.WriteHeader(hdr)
+	if err != nil {
+		return fmt.Errorf(errMsg, err)
+	}
+
+	// write compressed file
+	fr, err := os.Open(fname)
+	if err != nil {
+		return fmt.Errorf(errMsg, err)
+	}
+	defer fr.Close()
+	_, err = io.Copy(tw, fr)
+	if err != nil {
+		return fmt.Errorf(errMsg, err)
+	}
+
+	// remove raw file
+	err = os.Remove(fname)
+	if err != nil {
+		return fmt.Errorf(errMsg, err)
+	}
+
+	return nil
 }

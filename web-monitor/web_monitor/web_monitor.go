@@ -37,6 +37,7 @@ import (
 	"github.com/baidu/go-lib/gotrack"
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/time/timefmt"
+	"github.com/baidu/go-lib/web-monitor/web_monitor/reload_src_conf"
 )
 
 // source ip address allowed to do reload
@@ -372,4 +373,38 @@ func (srv *MonitorServer) ListenAndServe() error {
 
 	portStr := fmt.Sprintf(":%d", srv.port)
 	return http.ListenAndServe(portStr, nil)
+}
+
+// InitReloadACL inits reload-acl from file.
+func InitReloadACL(filename string) error {
+	srcAddrs, err := reload_src_conf.ReloadSrcIPsLoad(filename)
+	if err != nil {
+		return fmt.Errorf("reload_src_conf.ReloadSrcIPsLoad() error, filename:%s, err:%s", filename, err.Error())
+	}
+
+	if err := checkReloadACL(srcAddrs); err != nil {
+		return err
+	}
+
+	for _, srcAddr := range srcAddrs {
+		RELOAD_SRC_ALLOWED[srcAddr] = true
+	}
+	return nil
+}
+
+func checkReloadACL(srcAddrs []string) error {
+	_, innerNet, err := net.ParseCIDR("10.0.0.1/8")
+	if err != nil {
+		return err
+	}
+	for _, srcAddr := range srcAddrs {
+		ip := net.ParseIP(srcAddr)
+		if ip == nil {
+			return fmt.Errorf("src addr(%s) is not a valid ip", srcAddr)
+		}
+		if !innerNet.Contains(ip) && !ip.IsLoopback() {
+			return fmt.Errorf("src addr(%s) is neither in inner network(10.0.0.1/8) nor a loopback address", srcAddr)
+		}
+	}
+	return nil
 }

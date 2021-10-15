@@ -12,28 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package web_monitor
+package metrics
 
 import (
-	"testing"
+	"sync/atomic"
 )
 
-func TestIsValidForReload(t *testing.T) {
-	if !isValidForReload("[::1]:8080") {
-		t.Error("err in valid for reload, [::1]:8080 should allow reload")
+type State atomic.Value
+
+// Set sets state
+func (s *State) Set(v string) {
+	if s == nil {
+		return
 	}
-	if !isValidForReload("127.0.0.1:8080") {
-		t.Error("err in valid for reload, 127.0.0.1:8080 should allow reload")
-	}
+
+	(*atomic.Value)(s).Store(v)
 }
 
-func TestInitReloadACL(t *testing.T) {
-	err := InitReloadACL("reload_src_conf/testdata/reload_src_conf_1.data")
-	if err != nil {
-		t.Fatal(err.Error())
+// Get gets state
+func (s *State) Get() string {
+	if s == nil {
+		return ""
 	}
 
-	if len(RELOAD_SRC_ALLOWED) != 5 {
-		t.Fatal("len(RELOAD_SRC_ALLOWED) != 5")
+	v := (*atomic.Value)(s).Load()
+	if v == nil {
+		return ""
 	}
+	return v.(string)
+}
+
+func (s *State) Type() string {
+	return TypeState
 }

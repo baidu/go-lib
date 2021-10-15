@@ -12,28 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package web_monitor
+package metrics
 
 import (
 	"testing"
 )
 
-func TestIsValidForReload(t *testing.T) {
-	if !isValidForReload("[::1]:8080") {
-		t.Error("err in valid for reload, [::1]:8080 should allow reload")
-	}
-	if !isValidForReload("127.0.0.1:8080") {
-		t.Error("err in valid for reload, 127.0.0.1:8080 should allow reload")
+func TestStateGet(t *testing.T) {
+	var s State
+	if s.Get() != "" {
+		t.Errorf("init state expect \"\", but is:%s", s.Get())
 	}
 }
 
-func TestInitReloadACL(t *testing.T) {
-	err := InitReloadACL("reload_src_conf/testdata/reload_src_conf_1.data")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	if len(RELOAD_SRC_ALLOWED) != 5 {
-		t.Fatal("len(RELOAD_SRC_ALLOWED) != 5")
+func TestStateSet(t *testing.T) {
+	var s State
+	s.Set("test")
+	if s.Get() != "test" {
+		t.Errorf("after set, expected to be test, but is:%s", s.Get())
 	}
 }

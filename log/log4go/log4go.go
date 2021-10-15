@@ -61,12 +61,14 @@ package log4go
 
 import (
 	"errors"
-	"os"
 	"fmt"
-	"time"
-    "strconv"
-	"strings"
+	"os"
 	"runtime"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/baidu/go-lib/web-monitor/module_state2"
 )
 
 // Version information
@@ -112,19 +114,22 @@ var (
 	LogBufferLength = 1024
 	// whether blocking, if log buffer is full
 	LogWithBlocking = true
-    // log format
-    LogFormat       = FORMAT_DEFAULT
+	// log format
+	LogFormat = FORMAT_DEFAULT
 	// process id
-    LogProcessId    = "0"
+	LogProcessId = "0"
 	// whether record src for binary log
 	EnableSrcForBinLog = true
+	// whether record state
+	WithModuleState = false
+	log4goState     module_state2.State
 )
 
 /****** LogRecord ******/
 
 // A LogRecord contains all of the pertinent information for each message
 type LogRecord struct {
-	Level   LevelType     // The log LevelType
+	Level   LevelType // The log LevelType
 	Created time.Time // The time at which the log message was created (nanoseconds)
 	Source  string    // The message source
 	Message string    // The log message
@@ -133,28 +138,28 @@ type LogRecord struct {
 
 /****** LogCloser ******/
 type LogCloser struct {
-    IsEnd       chan bool
+	IsEnd chan bool
 }
 
 func (lc *LogCloser) LogCloserInit() {
-    lc.IsEnd = make(chan bool)
+	lc.IsEnd = make(chan bool)
 }
 
 // notyfy the logger log to end
 func (lc *LogCloser) EndNotify(lr *LogRecord) bool {
-    if lr == nil && lc.IsEnd != nil {
-        lc.IsEnd <- true
-        return true
-    }
-    return false
+	if lr == nil && lc.IsEnd != nil {
+		lc.IsEnd <- true
+		return true
+	}
+	return false
 }
 
 // add nil to end of res and wait that EndNotify is call
 func (lc *LogCloser) WaitForEnd(rec chan *LogRecord) {
-    rec <- nil
-    if lc.IsEnd != nil {
-        <- lc.IsEnd
-    }
+	rec <- nil
+	if lc.IsEnd != nil {
+		<-lc.IsEnd
+	}
 }
 
 /****** LogWriter ******/
@@ -171,15 +176,16 @@ type LogWriter interface {
 
 // this interface provide writer's extend information
 type WriterInfo interface {
-    // each writer has a name
-    Name() string
-    
-    // most writers has a queue in side it
-    QueueLen() int
+	// each writer has a name
+	Name() string
+
+	// most writers has a queue in side it
+	QueueLen() int
 }
 
 // collect info about all writers
 type WriterInfoArray []WriterInfo
+
 var writersInfo WriterInfoArray = make(WriterInfoArray, 0)
 
 /****** Logger ******/
@@ -276,7 +282,7 @@ func (log Logger) intLogf(lvl LevelType, format string, args ...interface{}) {
 		Created: time.Now(),
 		Source:  src,
 		Message: msg,
-		Binary: nil,
+		Binary:  nil,
 	}
 
 	// Dispatch the logs
@@ -316,14 +322,14 @@ func (log Logger) intLogb(lvl LevelType, data []byte) {
 			src = fmt.Sprintf("%s:%d", runtime.FuncForPC(pc).Name(), lineno)
 		}
 	}
-	
+
 	// Make the log record
 	rec := &LogRecord{
 		Level:   lvl,
 		Created: time.Now(),
 		Source:  src,
 		Message: "",
-		Binary: data,
+		Binary:  data,
 	}
 
 	// Dispatch the logs
@@ -334,7 +340,6 @@ func (log Logger) intLogb(lvl LevelType, data []byte) {
 		filt.LogWrite(rec)
 	}
 }
-
 
 // Send a closure log message internally
 func (log Logger) intLogc(lvl LevelType, closure func() string) {
@@ -364,7 +369,7 @@ func (log Logger) intLogc(lvl LevelType, closure func() string) {
 		Created: time.Now(),
 		Source:  src,
 		Message: closure(),
-		Binary: nil,
+		Binary:  nil,
 	}
 
 	// Dispatch the logs
@@ -397,7 +402,7 @@ func (log Logger) Log(lvl LevelType, source, message string) {
 		Created: time.Now(),
 		Source:  source,
 		Message: message,
-		Binary: nil,
+		Binary:  nil,
 	}
 
 	// Dispatch the logs
@@ -603,31 +608,55 @@ func (log Logger) Critical(arg0 interface{}, args ...interface{}) error {
 // set LogBufferLength (default is 1024)
 // This should be invoked before create logWriter
 func SetLogBufferLength(bufferLen int) {
-    LogBufferLength = bufferLen
+	LogBufferLength = bufferLen
 }
 
 // set LogWithBlocking (default is true)
 // This should be invoked before create logWriter
 func SetLogWithBlocking(isBlocking bool) {
-    LogWithBlocking = isBlocking
+	LogWithBlocking = isBlocking
 }
 
 // set LogFormat(default is FORMAT_DEFAULT)
 // This should be invoked before create logWriter
 func SetLogFormat(format string) {
-    LogFormat = format
-    if strings.Contains(LogFormat, "%P") {
-        setLogProcessId()
-    }
+	LogFormat = format
+	if strings.Contains(LogFormat, "%P") {
+		setLogProcessId()
+	}
 }
 
 // set LogProcessId(default is 0)
 // This should be invoked before create logWriter
 func setLogProcessId() {
-    LogProcessId = strconv.Itoa(os.Getpid())
+	LogProcessId = strconv.Itoa(os.Getpid())
 }
 
 // set Src line for binary log
 func SetSrcLineForBinLog(enable bool) {
-    EnableSrcForBinLog = enable
+	EnableSrcForBinLog = enable
+}
+
+// set WithModuleState (default is false)
+// This should be invoked before create logWriter
+func SetWithModuleState(haveState bool) {
+	WithModuleState = haveState
+	if haveState {
+		log4goState.Init()
+	}
+}
+
+// get state of log4go
+func GetModuleState() *module_state2.StateData {
+	table := module_state2.NewStateData()
+
+	if WithModuleState {
+		for _, w := range writersInfo {
+			queueInfo := fmt.Sprintf("%s_queue_length", w.Name())
+			log4goState.SetNum(queueInfo, int64(w.QueueLen()))
+		}
+
+		return log4goState.GetAll()
+	}
+	return table
 }
